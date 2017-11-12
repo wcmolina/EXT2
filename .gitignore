@@ -29,4 +29,5 @@ dist/
 nbdist/
 .nb-gradle/
 
+!/lib/*.jar
 disk.bin
