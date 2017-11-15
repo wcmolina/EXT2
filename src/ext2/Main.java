@@ -14,8 +14,9 @@ public class Main {
      */
     public static void main(String[] args) {
         try {
-            Disk disk = new Disk(new File("disk.bin"));
-            disk.format();
+            final Disk DISK = new Disk(new File("disk.bin"));
+            final FileSystem FILE_SYSTEM = new FileSystem(DISK);
+            FILE_SYSTEM.format();
         } catch (IOException ioe) {
             ioe.printStackTrace();
         }
