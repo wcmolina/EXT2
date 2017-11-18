@@ -14,9 +14,23 @@ public class Main {
      */
     public static void main(String[] args) {
         try {
-            final Disk DISK = new Disk(new File("disk.bin"));
-            final FileSystem FILE_SYSTEM = new FileSystem(DISK);
-            FILE_SYSTEM.format();
+            File binaryFile = new File("disk.bin");
+            final Disk DISK;
+            final FileSystem FILE_SYSTEM;
+            if (binaryFile.exists() && !binaryFile.isDirectory()) {
+                // disk.bin already exists. Perform operations in this file
+                System.out.println("File disk.bin already exists");
+                DISK = new Disk(binaryFile);
+                FILE_SYSTEM = new FileSystem(DISK);
+                // TODO: use this file as a disk and try to save a file using cat > a.txt
+                // Algorithm for saving a file in EXT2? How are dir_entry, inodes table, and pointers used?
+            } else {
+                binaryFile.createNewFile();
+                DISK = new Disk(binaryFile);
+                FILE_SYSTEM = new FileSystem(DISK);
+                FILE_SYSTEM.format();
+                System.out.println("File disk.bin was created and formatted successfully");
+            }
         } catch (IOException ioe) {
             ioe.printStackTrace();
         }
