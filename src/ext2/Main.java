@@ -2,6 +2,7 @@ package ext2;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  *
@@ -24,6 +25,17 @@ public class Main {
                 FILE_SYSTEM = new FileSystem(DISK);
                 // TODO: use this file as a disk and try to save a file using cat > a.txt
                 // Algorithm for saving a file in EXT2? How are dir_entry, inodes table, and pointers used?
+                String catTest = "Hola mundo mi nombre es Wilmer";
+                int fileSize = catTest.length() * 2;
+                Inode node = new Inode(Inode.REGULAR, fileSize);
+                byte res[] = node.toByteArray();
+                String bin = "";
+                for (byte b : res) {
+                    bin += String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0') + " ";
+                }
+                // Este monton de bits seria un inode en la inode table (son 64 bytes), y la inode table soporta hasta 1024 entradas
+                System.out.println("inode entry example:");
+                System.out.println(bin);
             } else {
                 binaryFile.createNewFile();
                 DISK = new Disk(binaryFile);
