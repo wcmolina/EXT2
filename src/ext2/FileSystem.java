@@ -1,6 +1,7 @@
 package ext2;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 /**
  *
@@ -25,10 +26,39 @@ public class FileSystem {
     private final int INODE_TABLE_OFFSET = INODE_BITMAP_OFFSET + INODE_BITMAP_SIZE; // byte 12288
     private final int DATA_OFFSET = INODE_TABLE_OFFSET + INODE_TABLE_SIZE; // byte 77824
     // Data bitmap
-    private final int DATA_BITMAP[] = new int[2048];
+    private final byte DATA_BITMAP[] = new byte[DATA_BITMAP_SIZE];
+    private final byte INODE_BITMAP[] = new byte[INODE_BITMAP_SIZE];
 
     public FileSystem(Disk disk) {
         DISK = disk;
+    }
+
+    // Should be called once after the binary file is created and formatted
+    public void initialize() throws IOException {
+        // Create the root directory in the first block after the data offset
+        Directory root = new Directory();
+        // Next unused data block
+        final int NEXT_DATA_BLOCK = Util.firstBitUnset(DATA_BITMAP);
+        // Next unused inode index (from the inode table)
+        final int NEXT_INODE = Util.firstBitUnset(INODE_BITMAP);
+
+        Inode rootSelf = new Inode(Inode.DIRECTORY);
+        rootSelf.addBlocks(NEXT_DATA_BLOCK);
+        // ..
+        Inode rootParent = new Inode(Inode.DIRECTORY);
+        rootParent.addBlocks(0);
+        root.add(new DirectoryEntry(0, ".", rootSelf.getType()));
+        root.add(new DirectoryEntry(1, "..", rootParent.getType()));
+
+        // Write root
+        DISK.seek(DATA_OFFSET);
+        //DISK.write(root.toByteArray());
+
+        // Memory allocation
+        // Allocate bitmaps to memory
+        allocateBitmaps();
+
+        // Allocate inode table to memory
     }
 
     public void format() throws IOException {
@@ -36,26 +66,18 @@ public class FileSystem {
         final byte ZEROS[] = new byte[DISK.getSizeBytes()];
         DISK.seek(0);
         DISK.write(ZEROS);
-
-        /*
-        Create root directory
-        El primer bloque donde inician los datos es el numero 20.
-        En el bloque numero 20, debe haber un Directory (estructura que contiene directory entries). Ese Directory debe ser root
-        Cada directory entry tiene:
-            inode: numero de inodo que indica donde se encuentra la metadata del archivo o directorio
-            nombre: nombre del archivo o directorio (tamaño variable)
-        Antes de crear el directory ya debe haber un inode creado
-        Un inode contiene la metadata del archivo (size, timestamps, punteros a bloques, etc.)
-        Antes de crear un inode, es necesario buscar que bloques estan libres en el segmento de datos (utlizando el data bitmap) y, ademas,
-            que entrada esta disponible en el inode table (con el inode bitmap)
-        Con el inode bitmap, buscamos en que indice hay un bit apagado (en 0), retornamos ese indice y luego
-        Con el data bitmap, buscamos en que índice hay un bit apagado (en 0). Retornamos ese indice y luego buscamos ese indice en el segmento de datos.
-        Antes de ello, es necesario saber cuantos bytes tomará el archivo.
-        Para saber cuantos bytes toma un archivo, se multiplica el length del string * 2
-        */
+        //initalize();
     }
 
-    // Offsets
+    private void allocateBitmaps() throws IOException {
+        // Data bitmap: desde byte 0 hasta el 8192
+        DISK.seek(DATA_BITMAP_OFFSET);
+        DISK.read(DATA_BITMAP);
+        // Inode bitmap: desde byte 8192 hasta el 12288
+        DISK.seek(INODE_BITMAP_OFFSET);
+        DISK.read(INODE_BITMAP);
+    }
+
     public int getDataBitmapOffset() {
         return DATA_BITMAP_OFFSET;
     }

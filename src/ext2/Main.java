@@ -27,7 +27,7 @@ public class Main {
                 // Algorithm for saving a file in EXT2? How are dir_entry, inodes table, and pointers used?
                 String catTest = "Hola mundo mi nombre es Wilmer";
                 int fileSize = catTest.length() * 2;
-                Inode node = new Inode(Inode.REGULAR, fileSize);
+                Inode node = new Inode(Inode.FILE);
                 byte res[] = node.toByteArray();
                 String bin = "";
                 for (byte b : res) {

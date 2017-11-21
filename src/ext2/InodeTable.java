@@ -6,9 +6,9 @@ import java.util.LinkedList;
  *
  * @author Wilmer
  */
-public class Directory extends LinkedList<DirectoryEntry> {
+public class InodeTable extends LinkedList<Inode> {
 
-    public Directory() {
+    public InodeTable() {
         super();
     }
 }
