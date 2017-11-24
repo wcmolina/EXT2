@@ -1,7 +1,6 @@
 package ext2;
 
 /**
- *
  * @author Wilmer
  */
 public class DirectoryEntry {
@@ -36,5 +35,29 @@ public class DirectoryEntry {
             }
         }
         REC_LEN = 8 + filename.length();
+    }
+
+    public int getInode() {
+        return I_NODE;
+    }
+
+    public int getRecLen() {
+        return REC_LEN;
+    }
+
+    public int getNameLen() {
+        return NAME_LEN;
+    }
+
+    public int getType() {
+        return FILE_TYPE;
+    }
+
+    public String getFilename() {
+        return filename;
+    }
+
+    public void setFilename(String filename) {
+        this.filename = filename;
     }
 }

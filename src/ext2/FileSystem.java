@@ -1,10 +1,8 @@
 package ext2;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 /**
- *
  * @author Wilmer
  */
 public class FileSystem {
@@ -38,9 +36,9 @@ public class FileSystem {
         // Create the root directory in the first block after the data offset
         Directory root = new Directory();
         // Next unused data block
-        final int NEXT_DATA_BLOCK = Util.firstBitUnset(DATA_BITMAP);
+        final int NEXT_DATA_BLOCK = Util.nextBitUnset(DATA_BITMAP);
         // Next unused inode index (from the inode table)
-        final int NEXT_INODE = Util.firstBitUnset(INODE_BITMAP);
+        final int NEXT_INODE = Util.nextBitUnset(INODE_BITMAP);
 
         Inode rootSelf = new Inode(Inode.DIRECTORY);
         rootSelf.addBlocks(NEXT_DATA_BLOCK);

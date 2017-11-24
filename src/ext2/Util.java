@@ -1,15 +1,17 @@
 package ext2;
 
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+
 /**
- *
  * @author Wilmer
  */
 public final class Util {
-    // Contains useful utility methods for bit manipulation and stuff
+    // Contains useful utility methods for bit manipulation and other stuff
 
     // Finds the first bit that is unset (0), and then sets (changes to 1) that same bit
     // Used for the file system bitmaps
-    public static int firstBitUnset(byte... array) {
+    public static int nextBitUnset(byte... array) {
         int index = 0;
         for (int i = 0; i < array.length; i++) {
             // Loop through every byte
@@ -48,6 +50,14 @@ public final class Util {
             }
         }
         return 0;
+    }
+
+    // Converts an int array to a byte array
+    public static byte[] toByteArray(int... array) {
+        ByteBuffer byteBuffer = ByteBuffer.allocate(array.length * 4);
+        IntBuffer intBuffer = byteBuffer.asIntBuffer();
+        intBuffer.put(array);
+        return byteBuffer.array();
     }
 
     // Prints every byte in binary of a byte array

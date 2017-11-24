@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.util.Arrays;
 
 /**
- *
  * @author Wilmer
  */
 public class Main {
@@ -27,15 +26,14 @@ public class Main {
                 // Algorithm for saving a file in EXT2? How are dir_entry, inodes table, and pointers used?
                 String catTest = "Hola mundo mi nombre es Wilmer";
                 int fileSize = catTest.length() * 2;
-                Inode node = new Inode(Inode.FILE);
-                byte res[] = node.toByteArray();
-                String bin = "";
-                for (byte b : res) {
-                    bin += String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0') + " ";
-                }
-                // Este monton de bits seria un inode en la inode table (son 64 bytes), y la inode table soporta hasta 1024 entradas
+                Inode node = new Inode(Inode.FILE, fileSize);
                 System.out.println("inode entry example:");
-                System.out.println(bin);
+                // Este monton de bits seria un inode en la inode table (son 64 bytes), y la inode table soporta hasta 1024 entradas
+                Util.printBytes(node.toByteArray());
+                // Inodo creado a partir del array de bytes del inodo anterior
+                // Producen los mismos bytes
+                Inode built = Inode.fromByteArray(node.toByteArray());
+                Util.printBytes(built.toByteArray());
             } else {
                 binaryFile.createNewFile();
                 DISK = new Disk(binaryFile);

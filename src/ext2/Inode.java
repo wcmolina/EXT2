@@ -1,11 +1,15 @@
 package ext2;
 
 import com.google.common.primitives.Bytes;
+import com.google.common.primitives.Ints;
+
 import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.util.Arrays;
+
 import static java.lang.Math.toIntExact;
 
 /**
- *
  * @author Wilmer
  */
 public class Inode {
@@ -16,7 +20,7 @@ public class Inode {
     // 4 bytes
     private int size;
     // 4 bytes
-    private final int creationTime;
+    private int creationTime;
     // 4 bytes
     private int deletionTime;
     // 48 bytes
@@ -26,10 +30,11 @@ public class Inode {
     public Inode(int type) {
         this.type = type;
         creationTime = toIntExact(System.currentTimeMillis() / 1000);
-        // Set all pointers to -1, to tag them as unused
-        for (int i = 0; i < directPointers.length; i++) {
-            directPointers[i] = -1;
-        }
+    }
+
+    public Inode(int type, int size) {
+        this(type);
+        this.size = size;
     }
 
     // File size
@@ -37,8 +42,15 @@ public class Inode {
         this.size = size;
     }
 
+    public void setCreationTime(int time) {
+        creationTime = time;
+    }
+
+    public void setDeletionTime(int time) {
+        deletionTime = time;
+    }
+
     // Save the references of the blocks passed to this method in the pointers
-    // Fix: saved in memory only, must be written to disk later
     public void addBlocks(int... blocks) {
         if (blocks.length > directPointers.length) {
             System.out.println("Too many blocks to allocate them all in 12 pointers");
@@ -46,16 +58,41 @@ public class Inode {
         }
         for (int block : blocks) {
             for (int i = 0; i < directPointers.length; i++) {
-                if (directPointers[i] == -1) {
-                    // Pointer unused, assign block here
-                    directPointers[i] = block;
-                }
+                directPointers[i] = block;
             }
         }
     }
 
     public int getType() {
         return type;
+    }
+
+    // Reads 64 bytes from the byte array[] and creates a new instance of Inde from it
+    public static Inode fromByteArray(byte array[]) {
+        // Split 64 byte array into subarrays
+        final byte TYPE[] = Arrays.copyOfRange(array, 0, 4);
+        final byte SIZE[] = Arrays.copyOfRange(array, 4, 8);
+        final byte CR_TIME[] = Arrays.copyOfRange(array, 8, 12);
+        final byte DEL_TIME[] = Arrays.copyOfRange(array, 12, 16);
+        final byte POINTERS[] = Arrays.copyOfRange(array, 16, 64);
+
+        // Build new inode instance from previous arrays
+        int type = Ints.fromByteArray(TYPE);
+        int size = Ints.fromByteArray(SIZE);
+        int crTime = Ints.fromByteArray(CR_TIME);
+        int delTime = Ints.fromByteArray(DEL_TIME);
+
+        // Create pointers array
+        IntBuffer intBuf = ByteBuffer.wrap(POINTERS).asIntBuffer();
+        int[] pointers = new int[intBuf.remaining()];
+        intBuf.get(pointers);
+
+        // Create instance and return it
+        Inode inode = new Inode(type, size);
+        inode.setCreationTime(crTime);
+        inode.setDeletionTime(delTime);
+        inode.addBlocks(pointers);
+        return inode;
     }
 
     /*  To array of 64 bytes
@@ -66,13 +103,13 @@ public class Inode {
         The remaining 48 bytes are used for the 12 direct pointers (4 bytes each)
     */
     public byte[] toByteArray() {
-        final byte TYPE[] = ByteBuffer.allocate(4).putInt(type).array();
-        final byte SIZE[] = ByteBuffer.allocate(4).putInt(size).array();
-        final byte CR_TIME[] = ByteBuffer.allocate(4).putInt(creationTime).array();
-        final byte DEL_TIME[] = ByteBuffer.allocate(4).putInt(deletionTime).array();
-        // Fix: missing 12 pointers
+        final byte TYPE[] = Util.toByteArray(type);
+        final byte SIZE[] = Util.toByteArray(size);
+        final byte CR_TIME[] = Util.toByteArray(creationTime);
+        final byte DEL_TIME[] = Util.toByteArray(deletionTime);
+        final byte POINTERS[] = Util.toByteArray(directPointers);
         // Merge all arrays
         // The resulting array is used to write this inode instance back to disk
-        return Bytes.concat(TYPE, SIZE, CR_TIME, DEL_TIME);
+        return Bytes.concat(TYPE, SIZE, CR_TIME, DEL_TIME, POINTERS);
     }
 }
