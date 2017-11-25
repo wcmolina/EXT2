@@ -2,6 +2,9 @@ package ext2;
 
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
+import java.nio.ShortBuffer;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 /**
  * @author Wilmer
@@ -52,11 +55,29 @@ public final class Util {
         return 0;
     }
 
+    public static String epochTimeToDate(int time) {
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy hh:mm:ss a");
+        return sdf.format(new Date(time * 1000L));
+    }
+
     // Converts an int array to a byte array
     public static byte[] toByteArray(int... array) {
         ByteBuffer byteBuffer = ByteBuffer.allocate(array.length * 4);
         IntBuffer intBuffer = byteBuffer.asIntBuffer();
         intBuffer.put(array);
+        return byteBuffer.array();
+    }
+
+    public static byte[] toByteArray(short... array) {
+        ByteBuffer byteBuffer = ByteBuffer.allocate(array.length * 2);
+        ShortBuffer shortBuffer = byteBuffer.asShortBuffer();
+        shortBuffer.put(array);
+        return byteBuffer.array();
+    }
+
+    public static byte[] toByteArray(byte... array) {
+        ByteBuffer byteBuffer = ByteBuffer.allocate(array.length);
+        byteBuffer.put(array);
         return byteBuffer.array();
     }
 

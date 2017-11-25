@@ -5,7 +5,11 @@ import com.google.common.primitives.Ints;
 
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
 
 import static java.lang.Math.toIntExact;
 
@@ -67,7 +71,16 @@ public class Inode {
         return type;
     }
 
-    // Reads 64 bytes from the byte array[] and creates a new instance of Inde from it
+    public int getSize() {
+        return size;
+    }
+
+    // Return epoch time
+    public int getCreationTime() {
+        return creationTime;
+    }
+
+    // Reads 64 bytes from the byte array[] and creates a new instance of Inode from it
     public static Inode fromByteArray(byte array[]) {
         // Split 64 byte array into subarrays
         final byte TYPE[] = Arrays.copyOfRange(array, 0, 4);
@@ -83,9 +96,9 @@ public class Inode {
         int delTime = Ints.fromByteArray(DEL_TIME);
 
         // Create pointers array
-        IntBuffer intBuf = ByteBuffer.wrap(POINTERS).asIntBuffer();
-        int[] pointers = new int[intBuf.remaining()];
-        intBuf.get(pointers);
+        IntBuffer intBuffer = ByteBuffer.wrap(POINTERS).asIntBuffer();
+        int[] pointers = new int[intBuffer.remaining()];
+        intBuffer.get(pointers);
 
         // Create instance and return it
         Inode inode = new Inode(type, size);

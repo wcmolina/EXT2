@@ -39,14 +39,14 @@ public class FileSystem {
         final int NEXT_DATA_BLOCK = Util.nextBitUnset(DATA_BITMAP);
         // Next unused inode index (from the inode table)
         final int NEXT_INODE = Util.nextBitUnset(INODE_BITMAP);
-
+        // .
         Inode rootSelf = new Inode(Inode.DIRECTORY);
         rootSelf.addBlocks(NEXT_DATA_BLOCK);
         // ..
         Inode rootParent = new Inode(Inode.DIRECTORY);
         rootParent.addBlocks(0);
-        root.add(new DirectoryEntry(0, ".", rootSelf.getType()));
-        root.add(new DirectoryEntry(1, "..", rootParent.getType()));
+        root.add(new DirectoryEntry(0, ".", DirectoryEntry.DIRECTORY));
+        root.add(new DirectoryEntry(1, "..", DirectoryEntry.DIRECTORY));
 
         // Write root
         DISK.seek(DATA_OFFSET);
