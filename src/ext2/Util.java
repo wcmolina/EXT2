@@ -9,21 +9,26 @@ import java.util.Date;
 /**
  * @author Wilmer
  */
-public final class Util {
-    // Contains useful utility methods for bit manipulation and other stuff
 
-    // Finds the first bit that is unset (0), and then sets (changes to 1) that same bit
-    // Used for the file system bitmaps
-    public static int nextBitUnset(byte... array) {
-        int index = 0;
+// Contains useful utility methods for bit manipulation and other stuff
+public final class Util {
+
+    // Finds the first bit that is unset (0) or set (1) depending on the value of set,
+    // and then toggles that same bit
+    public static int getThenToggleBit(boolean set, byte... array) {
+        // All block and inode addresses start at 1. 0 is used as a flag to indicate null or no inode
+        int index = 1;
         for (int i = 0; i < array.length; i++) {
-            // Loop through every byte
             byte b = array[i];
             for (int j = 7; j >= 0; j--) {
-                // Loop through every bit j in byte b
-                if (!(b << ~j < 0)) {
-                    // Bit j not set
-                    b |= (1 << j); // set bit j to 1
+                if (((b >>> j) & 1) != 0 && set) {
+                    // Toggle bit and replace byte
+                    b ^= (1 << j);
+                    array[i] = b;
+                    return index;
+                } else if (((b >>> j) & 1) == 0 && !set) {
+                    // Toggle bit and replace byte
+                    b ^= (1 << j);
                     array[i] = b;
                     return index;
                 }
@@ -33,26 +38,33 @@ public final class Util {
         return 0;
     }
 
-    // Useful later on when deleting is implemented
-    // Finds the first bit that is set (1), and then unsets (changes to 0) that same bit
-    // Used for the file system bitmaps
-    public static int firstBitSet(byte... array) {
-        int index = 0;
-        for (int i = 0; i < array.length; i++) {
-            // Loop through every byte
-            byte b = array[i];
+    // Finds the first bit that is unset (0) or set (1) depending on the value of set
+    public static int findFirstBit(boolean set, byte... array) {
+        // All block and inode addresses start at 1. 0 is used as a flag to indicate null or no inode
+        int index = 1;
+        for (byte b : array) {
             for (int j = 7; j >= 0; j--) {
-                // Loop through every bit j in byte b
-                if (b << ~j < 0) {
-                    // Bit j set
-                    b &= ~(1 << j); // set bit j to 0
-                    array[i] = b;
-                    return index;
-                }
+                if (((b >>> j) & 1) != 0 && set) return index;
+                else if (((b >>> j) & 1) == 0 && !set) return index;
                 index++;
             }
         }
         return 0;
+    }
+
+    public static void toggleBit(int bitIndex, byte[] array) {
+        int index = 0;
+        for (int i = 0; i < array.length; i++) {
+            byte b = array[i];
+            for (int j = 7; j >= 0; j--) {
+                // Toggle bit
+                if (index == bitIndex) {
+                    b ^= (1 << j);
+                    array[i] = b;
+                }
+                index++;
+            }
+        }
     }
 
     public static String epochTimeToDate(int time) {

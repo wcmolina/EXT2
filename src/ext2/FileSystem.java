@@ -1,5 +1,8 @@
 package ext2;
 
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Shorts;
+
 import java.io.IOException;
 
 /**
@@ -23,40 +26,39 @@ public class FileSystem {
     private final int INODE_BITMAP_OFFSET = DATA_BITMAP_SIZE; // byte 8192
     private final int INODE_TABLE_OFFSET = INODE_BITMAP_OFFSET + INODE_BITMAP_SIZE; // byte 12288
     private final int DATA_OFFSET = INODE_TABLE_OFFSET + INODE_TABLE_SIZE; // byte 77824
-    // Data bitmap
+    // Bitmaps
     private final byte DATA_BITMAP[] = new byte[DATA_BITMAP_SIZE];
     private final byte INODE_BITMAP[] = new byte[INODE_BITMAP_SIZE];
+    // Current directory
+    private Directory currentDirectory;
 
+    // Constructor
     public FileSystem(Disk disk) {
         DISK = disk;
     }
 
     // Should be called once after the binary file is created and formatted
-    public void initialize() throws IOException {
-        // Create the root directory in the first block after the data offset
+    private void initialize() throws IOException {
+        System.out.println("Intitializing file system");
         Directory root = new Directory();
-        // Next unused data block
-        final int NEXT_DATA_BLOCK = Util.nextBitUnset(DATA_BITMAP);
-        // Next unused inode index (from the inode table)
-        final int NEXT_INODE = Util.nextBitUnset(INODE_BITMAP);
-        // .
+        currentDirectory = root;
+        // Get first unset bit in bitmaps
+        final int dataBlockIndex = Util.getThenToggleBit(false, DATA_BITMAP);
+        final int inodeIndex = Util.getThenToggleBit(false, INODE_BITMAP);
+        // Create . and .. directory entries
         Inode rootSelf = new Inode(Inode.DIRECTORY);
-        rootSelf.addBlocks(NEXT_DATA_BLOCK);
-        // ..
-        Inode rootParent = new Inode(Inode.DIRECTORY);
-        rootParent.addBlocks(0);
-        root.add(new DirectoryEntry(0, ".", DirectoryEntry.DIRECTORY));
-        root.add(new DirectoryEntry(1, "..", DirectoryEntry.DIRECTORY));
-
-        // Write root
-        DISK.seek(DATA_OFFSET);
-        //DISK.write(root.toByteArray());
-
-        // Memory allocation
-        // Allocate bitmaps to memory
-        allocateBitmaps();
-
-        // Allocate inode table to memory
+        rootSelf.addBlocks(dataBlockIndex);
+        root.add(new DirectoryEntry(inodeIndex, ".", DirectoryEntry.DIRECTORY));
+        root.add(new DirectoryEntry(inodeIndex, "..", DirectoryEntry.DIRECTORY));
+        // Write bitmaps
+        DISK.seek(DATA_BITMAP_OFFSET);
+        DISK.write(DATA_BITMAP);
+        DISK.write(INODE_BITMAP);
+        // Write inode
+        DISK.write(rootSelf.toByteArray());
+        // Write root's directory entries (at data block 1)
+        DISK.seek(DATA_OFFSET + (dataBlockIndex - 1) * BLOCK_SIZE_KB);
+        for (DirectoryEntry dirEntry : root) DISK.write(dirEntry.toByteArray());
     }
 
     public void format() throws IOException {
@@ -64,15 +66,12 @@ public class FileSystem {
         final byte ZEROS[] = new byte[DISK.getSizeBytes()];
         DISK.seek(0);
         DISK.write(ZEROS);
-        //initalize();
+        initialize();
     }
 
     private void allocateBitmaps() throws IOException {
-        // Data bitmap: desde byte 0 hasta el 8192
         DISK.seek(DATA_BITMAP_OFFSET);
         DISK.read(DATA_BITMAP);
-        // Inode bitmap: desde byte 8192 hasta el 12288
-        DISK.seek(INODE_BITMAP_OFFSET);
         DISK.read(INODE_BITMAP);
     }
 
@@ -90,5 +89,48 @@ public class FileSystem {
 
     public int getDataOffset() {
         return DATA_OFFSET;
+    }
+
+    public Directory getCurrentDirectory() throws IOException {
+        if (currentDirectory == null) {
+            // Make root the current directory
+            // Root is at data block 1
+            currentDirectory = readDirectory(1);
+        }
+        return currentDirectory;
+    }
+
+    public void setCurrentDirectory(Directory directory) {
+        currentDirectory = directory;
+    }
+
+    // Given a block index, read the directory entries from that block
+    private Directory readDirectory(int blockIndex) throws IOException {
+        Directory directory = new Directory();
+        int dirEntryOffset = DATA_OFFSET + (blockIndex - 1) * BLOCK_SIZE_KB;
+        byte inodeBytes[] = new byte[4];
+        byte recLenBytes[] = new byte[2];
+        int inode;
+        short recLen;
+        // Read inode
+        DISK.seek(dirEntryOffset);
+        DISK.read(inodeBytes);
+        inode = Ints.fromByteArray(inodeBytes);
+        while (inode != 0) {
+            DISK.read(recLenBytes);
+            recLen = Shorts.fromByteArray(recLenBytes);
+            byte dirEntry[] = new byte[recLen];
+            // Go back to the start of this directory entry
+            DISK.seek(dirEntryOffset);
+            // Read the whole recLen bytes
+            DISK.read(dirEntry);
+            directory.add(DirectoryEntry.fromByteArray(dirEntry));
+            // Read next inode if any
+            DISK.read(inodeBytes);
+            inode = Ints.fromByteArray(inodeBytes);
+            // Next directory entry offset
+            dirEntryOffset += recLen;
+        }
+        return directory;
     }
 }

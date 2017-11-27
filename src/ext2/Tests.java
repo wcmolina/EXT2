@@ -1,8 +1,5 @@
 package ext2;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
-
 /**
  * @author Wilmer
  */

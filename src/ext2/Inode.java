@@ -5,11 +5,7 @@ import com.google.common.primitives.Ints;
 
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
-import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Date;
-import java.util.Locale;
-import java.util.TimeZone;
 
 import static java.lang.Math.toIntExact;
 
@@ -17,8 +13,8 @@ import static java.lang.Math.toIntExact;
  * @author Wilmer
  */
 public class Inode {
-    public static final int DIRECTORY = 0;
-    public static final int FILE = 1;
+    public static final int DIRECTORY = 1;
+    public static final int FILE = 2;
     // 4 bytes
     private int type;
     // 4 bytes
@@ -56,13 +52,16 @@ public class Inode {
 
     // Save the references of the blocks passed to this method in the pointers
     public void addBlocks(int... blocks) {
-        if (blocks.length > directPointers.length) {
+        if (blocks.length > 12) {
             System.out.println("Too many blocks to allocate them all in 12 pointers");
             return;
         }
         for (int block : blocks) {
-            for (int i = 0; i < directPointers.length; i++) {
-                directPointers[i] = block;
+            for (int i = 0; i < 12; i++) {
+                if (directPointers[i] == 0) {
+                    directPointers[i] = block;
+                    break;
+                }
             }
         }
     }

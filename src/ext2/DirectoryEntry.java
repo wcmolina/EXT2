@@ -12,8 +12,8 @@ import java.util.Arrays;
 public class DirectoryEntry {
     // A directory is just a list of inodes and filenames (list of directory entries)
     // The inode points to the rest of the file's metadata, including the pointers to the data blocks
-    public static final byte DIRECTORY = 0;
-    public static final byte FILE = 1;
+    public static final byte DIRECTORY = 1;
+    public static final byte FILE = 2;
     // Inode number
     // 4 bytes
     private int iNode;
@@ -67,7 +67,7 @@ public class DirectoryEntry {
     }
 
     public String getFilename() {
-        return filename;
+        return filename.trim();
     }
 
     public void setiNode(int iNode) {
