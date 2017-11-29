@@ -4,19 +4,20 @@ import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 
 /**
  * @author Wilmer
  */
 
-// Contains useful utility methods for bit manipulation and other stuff
 public final class Util {
 
-    // Finds the first bit that is unset (0) or set (1) depending on the value of set,
+    // Finds the first bit that is unset (0) or set (1) depending on the value of 'set',
     // and then toggles that same bit
     public static int getThenToggleBit(boolean set, byte... array) {
-        // All block and inode addresses start at 1. 0 is used as a flag to indicate null or no inode
+        // Important: All block and inode addresses start at 1. 0 is used as a flag to indicate null or no inode
         int index = 1;
         for (int i = 0; i < array.length; i++) {
             byte b = array[i];
@@ -38,7 +39,7 @@ public final class Util {
         return 0;
     }
 
-    // Finds the first bit that is unset (0) or set (1) depending on the value of set
+    // Finds the first bit that is unset (0) or set (1) depending on the value of 'set'
     public static int findFirstBit(boolean set, byte... array) {
         // All block and inode addresses start at 1. 0 is used as a flag to indicate null or no inode
         int index = 1;
@@ -52,8 +53,25 @@ public final class Util {
         return 0;
     }
 
+    // Returns a list containing every index that corresponds to a bit set or unset depending on the value of 'set'
+    // Used for data and inode bitmaps, so index starts at 1
+    public static ArrayList<Integer> findAllBits(boolean set, byte...array) {
+        ArrayList<Integer> list = new ArrayList<>();
+        int index = 1;
+        for (byte b : array) {
+            for (int j = 7; j >= 0; j--) {
+                if (((b >>> j) & 1) != 0 && set) list.add(index);
+                else if (((b >>> j) & 1) == 0 && !set) list.add(index);
+                index++;
+            }
+        }
+        return list;
+    }
+
+    // Toggles (changes from 1 to 0 or viceversa) one bit at the index specified by 'bitIndex'
+    // For example: bitIndex of 12, toggles the fourth bit of the second byte of the array
     public static void toggleBit(int bitIndex, byte[] array) {
-        int index = 0;
+        int index = 1;
         for (int i = 0; i < array.length; i++) {
             byte b = array[i];
             for (int j = 7; j >= 0; j--) {
@@ -65,6 +83,21 @@ public final class Util {
                 index++;
             }
         }
+    }
+
+    // Split an array of bytes into equal parts of size 'chunkSize'
+    public static byte[][] splitBytes(byte[] data, int chunkSize) {
+        final int length = data.length;
+        final byte[][] result = new byte[(length + chunkSize - 1) / chunkSize][];
+        int resultIndex = 0;
+        int stopIndex = 0;
+        for (int startIndex = 0; startIndex + chunkSize <= length; startIndex += chunkSize) {
+            stopIndex += chunkSize;
+            result[resultIndex++] = Arrays.copyOfRange(data, startIndex, stopIndex);
+        }
+        if (stopIndex < length)
+            result[resultIndex] = Arrays.copyOfRange(data, stopIndex, length);
+        return result;
     }
 
     public static String epochTimeToDate(int time) {

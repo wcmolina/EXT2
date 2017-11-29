@@ -117,8 +117,6 @@ public class DirectoryEntry {
         final byte NAME_LEN[] = Util.toByteArray(nameLen);
         final byte TYPE[] = Util.toByteArray(fileType);
         final byte FILE_NAME[] = filename.getBytes();
-
-        // Merge arrays
         return Bytes.concat(I_NODE, REC_LEN, NAME_LEN, TYPE, FILE_NAME);
     }
 }

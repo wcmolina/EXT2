@@ -5,6 +5,7 @@ import com.google.common.primitives.Ints;
 
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 import static java.lang.Math.toIntExact;
@@ -24,63 +25,41 @@ public class Inode {
     // 4 bytes
     private int deletionTime;
     // 48 bytes
-    private final int[] directPointers = new int[12];
+    // FIX ME? Change this to ArrayList<Integer>?
+    private final int[] pointers = new int[12];
+    // Inode number
+    private int inode;
 
-    // type: directory or file
-    public Inode(int type) {
+    public Inode(int inode, int type) {
+        this.inode = inode;
         this.type = type;
         creationTime = toIntExact(System.currentTimeMillis() / 1000);
     }
 
-    public Inode(int type, int size) {
-        this(type);
+    public Inode(int inode, int type, int size) {
+        this(inode, type);
         this.size = size;
-    }
-
-    // File size
-    public void setSize(int size) {
-        this.size = size;
-    }
-
-    public void setCreationTime(int time) {
-        creationTime = time;
-    }
-
-    public void setDeletionTime(int time) {
-        deletionTime = time;
+        this.inode = inode;
     }
 
     // Save the references of the blocks passed to this method in the pointers
-    public void addBlocks(int... blocks) {
+    public void addBlockPointers(int... blocks) {
         if (blocks.length > 12) {
             System.out.println("Too many blocks to allocate them all in 12 pointers");
             return;
         }
         for (int block : blocks) {
             for (int i = 0; i < 12; i++) {
-                if (directPointers[i] == 0) {
-                    directPointers[i] = block;
+                if (pointers[i] == 0) {
+                    pointers[i] = block;
                     break;
                 }
             }
         }
     }
 
-    public int getType() {
-        return type;
-    }
-
-    public int getSize() {
-        return size;
-    }
-
-    // Return epoch time
-    public int getCreationTime() {
-        return creationTime;
-    }
-
     // Reads 64 bytes from the byte array[] and creates a new instance of Inode from it
-    public static Inode fromByteArray(byte array[]) {
+    public static Inode fromByteArray(byte array[], int inodeNumber) {
         // Split 64 byte array into subarrays
         final byte TYPE[] = Arrays.copyOfRange(array, 0, 4);
         final byte SIZE[] = Arrays.copyOfRange(array, 4, 8);
@@ -100,28 +79,68 @@ public class Inode {
         intBuffer.get(pointers);
 
         // Create instance and return it
-        Inode inode = new Inode(type, size);
+        Inode inode = new Inode(inodeNumber, type, size);
         inode.setCreationTime(crTime);
         inode.setDeletionTime(delTime);
-        inode.addBlocks(pointers);
+        inode.addBlockPointers(pointers);
         return inode;
     }
 
-    /*  To array of 64 bytes
-        Every inode takes 64 bytes (fixed size)
-        The first 4 bytes: mode or type (dir, regular file, etc.)
-        The next 4 bytes: file size in bytes
-        The next 8 bytes: creation time and deletion time (4 bytes each)
-        The remaining 48 bytes are used for the 12 direct pointers (4 bytes each)
-    */
     public byte[] toByteArray() {
         final byte TYPE[] = Util.toByteArray(type);
         final byte SIZE[] = Util.toByteArray(size);
         final byte CR_TIME[] = Util.toByteArray(creationTime);
         final byte DEL_TIME[] = Util.toByteArray(deletionTime);
-        final byte POINTERS[] = Util.toByteArray(directPointers);
-        // Merge all arrays
-        // The resulting array is used to write this inode instance back to disk
+        final byte POINTERS[] = Util.toByteArray(pointers);
         return Bytes.concat(TYPE, SIZE, CR_TIME, DEL_TIME, POINTERS);
+    }
+
+    public int getSize() {
+        return size;
+    }
+
+    public void setSize(int size) {
+        this.size = size;
+    }
+
+    public int getCreationTime() {
+        return creationTime;
+    }
+
+    public void setCreationTime(int time) {
+        creationTime = time;
+    }
+
+    public int getDeletionTime() {
+        return deletionTime;
+    }
+
+    public void setDeletionTime(int time) {
+        deletionTime = time;
+    }
+
+    public int getType() {
+        return type;
+    }
+
+    public int getInode() {
+        return inode;
+    }
+
+    public void setInode(int inodeNumber) {
+        inode = inodeNumber;
+    }
+
+    public int[] getPointers() {
+        return pointers;
+    }
+
+    public int[] getUsedPointers() {
+        ArrayList<Integer> blocks = new ArrayList<>();
+        for (int i : pointers) {
+            if (i == 0) continue;
+            blocks.add(i);
+        }
+        return Ints.toArray(blocks);
     }
 }
