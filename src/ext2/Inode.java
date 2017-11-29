@@ -43,6 +43,7 @@ public class Inode {
     }
 
     // Save the references of the blocks passed to this method in the pointers
+    // FIX ME: return true if the blocks where added succesfully, false otherwise
     public void addBlockPointers(int... blocks) {
         if (blocks.length > 12) {
             System.out.println("Too many blocks to allocate them all in 12 pointers");

@@ -21,15 +21,15 @@ public final class Util {
         int index = 1;
         for (int i = 0; i < array.length; i++) {
             byte b = array[i];
-            for (int j = 7; j >= 0; j--) {
-                if (((b >>> j) & 1) != 0 && set) {
+            for (int bit = 7; bit >= 0; bit--) {
+                if (((b >>> bit) & 1) != 0 && set) {
                     // Toggle bit and replace byte
-                    b ^= (1 << j);
+                    b ^= (1 << bit);
                     array[i] = b;
                     return index;
-                } else if (((b >>> j) & 1) == 0 && !set) {
+                } else if (((b >>> bit) & 1) == 0 && !set) {
                     // Toggle bit and replace byte
-                    b ^= (1 << j);
+                    b ^= (1 << bit);
                     array[i] = b;
                     return index;
                 }
@@ -44,9 +44,9 @@ public final class Util {
         // All block and inode addresses start at 1. 0 is used as a flag to indicate null or no inode
         int index = 1;
         for (byte b : array) {
-            for (int j = 7; j >= 0; j--) {
-                if (((b >>> j) & 1) != 0 && set) return index;
-                else if (((b >>> j) & 1) == 0 && !set) return index;
+            for (int bit = 7; bit >= 0; bit--) {
+                if (((b >>> bit) & 1) != 0 && set) return index;
+                else if (((b >>> bit) & 1) == 0 && !set) return index;
                 index++;
             }
         }
@@ -59,9 +59,9 @@ public final class Util {
         ArrayList<Integer> list = new ArrayList<>();
         int index = 1;
         for (byte b : array) {
-            for (int j = 7; j >= 0; j--) {
-                if (((b >>> j) & 1) != 0 && set) list.add(index);
-                else if (((b >>> j) & 1) == 0 && !set) list.add(index);
+            for (int bit = 7; bit >= 0; bit--) {
+                if (((b >>> bit) & 1) != 0 && set) list.add(index);
+                else if (((b >>> bit) & 1) == 0 && !set) list.add(index);
                 index++;
             }
         }
@@ -74,10 +74,10 @@ public final class Util {
         int index = 1;
         for (int i = 0; i < array.length; i++) {
             byte b = array[i];
-            for (int j = 7; j >= 0; j--) {
+            for (int bit = 7; bit >= 0; bit--) {
                 // Toggle bit
                 if (index == bitIndex) {
-                    b ^= (1 << j);
+                    b ^= (1 << bit);
                     array[i] = b;
                 }
                 index++;
@@ -91,10 +91,12 @@ public final class Util {
         final byte[][] result = new byte[(length + chunkSize - 1) / chunkSize][];
         int resultIndex = 0;
         int stopIndex = 0;
+
         for (int startIndex = 0; startIndex + chunkSize <= length; startIndex += chunkSize) {
             stopIndex += chunkSize;
             result[resultIndex++] = Arrays.copyOfRange(data, startIndex, stopIndex);
         }
+
         if (stopIndex < length)
             result[resultIndex] = Arrays.copyOfRange(data, stopIndex, length);
         return result;

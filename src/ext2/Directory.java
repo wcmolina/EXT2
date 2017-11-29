@@ -8,9 +8,9 @@ import java.util.LinkedList;
  */
 public class Directory extends LinkedList<DirectoryEntry> {
 
-    // Sum of all the record length of each directory entry contained in this directory
+    // Adds the record length of each directory entry contained in this directory
     private int totalLength;
-    // Block number where all the directoy entries are saved
+    // Block number where the directory is saved along with its directory entries
     private int blockNumber;
 
     public Directory(int blockNumber) {

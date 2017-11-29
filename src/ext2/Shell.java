@@ -1,7 +1,6 @@
 package ext2;
 
 import java.io.IOException;
-import java.util.NoSuchElementException;
 import java.util.Scanner;
 
 /**
@@ -23,51 +22,49 @@ public class Shell {
     public void start() throws IOException {
         Scanner scanner = new Scanner(System.in);
         String input, command;
-        try {
-            mainloop:
-            for (; ; ) {
-                System.out.print("\n/: ");
-                input = scanner.nextLine();
-                command = input.split(" ")[0];
-                switch (command) {
-                    case "ls": {
-                        if (currentDirectory == null) {
-                            currentDirectory = fileSystem.getRootDirectory();
-                        }
-                        ls(currentDirectory);
-                        break;
+        mainloop:
+        for (; ; ) {
+            System.out.print("\n/: ");
+            input = scanner.nextLine();
+            command = input.split(" ")[0];
+            switch (command) {
+                case "ls": {
+                    if (currentDirectory == null) {
+                        currentDirectory = fileSystem.getRootDirectory();
                     }
-                    case "cd": {
-                        break;
-                    }
-                    case "cat": {
-                        String opts[] = input.split(" ");
-                        if (opts.length == 2) {
-                            // cat file.txt
-                            String fileName = opts[1];
-                            // Find and show file contents
-                            cat(fileName);
-                        } else if (opts.length == 3) {
-                            // cat > file.txt
-                            String fileName = opts[2];
-                            String content = "";
-                            String line;
-                            // Type eof to end input stream
-                            while (!(line = scanner.nextLine()).equals("eof")) {
-                                content += line + "\n";
-                            }
-                            fileSystem.createFile(fileName, content);
-                        } else {
-                            System.out.println("Invalid 'cat' usage");
-                        }
-                        break;
-                    }
-                    case "exit":
-                        break mainloop;
+                    ls(currentDirectory);
+                    break;
                 }
+                case "cd": {
+                    break;
+                }
+                case "cat": {
+                    String opts[] = input.split(" ");
+                    if (opts.length == 2) {
+                        // cat file.txt
+                        String fileName = opts[1];
+                        cat(fileName);
+                    } else if (opts.length == 3) {
+                        // cat > file.txt
+                        String fileName = opts[2];
+                        if (fileName.length() > 255) {
+                            System.err.println("Error: File name too long (a maximum of 255 characters are allowed");
+                            break;
+                        }
+                        String content = "";
+                        String line;
+                        while (!(line = scanner.nextLine()).equals("eof")) {
+                            content += line + "\n";
+                        }
+                        fileSystem.writeFile(fileName, content);
+                    } else {
+                        System.out.println("Invalid 'cat' usage");
+                    }
+                    break;
+                }
+                case "exit":
+                    break mainloop;
             }
-        } catch (NoSuchElementException nsee) {
-            System.exit(0);
         }
     }
 
@@ -79,7 +76,11 @@ public class Shell {
 
     public void cat(String fileName) {
         try {
-            byte contentBytes[] = fileSystem.retrieveFile(fileName);
+            byte contentBytes[] = fileSystem.readFile(fileName);
+            if (contentBytes == null) {
+                System.err.println("File not found");
+                return;
+            }
             String content = new String(contentBytes);
             System.out.println(content);
         } catch (IOException ioe) {
