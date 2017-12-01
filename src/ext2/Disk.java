@@ -4,9 +4,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.RandomAccessFile;
 
-/**
- * @author Wilmer
- */
 public class Disk extends RandomAccessFile {
 
     // Disk volume size in KB

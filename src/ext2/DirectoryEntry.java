@@ -6,14 +6,12 @@ import com.google.common.primitives.Shorts;
 
 import java.util.Arrays;
 
-/**
- * @author Wilmer
- */
 public class DirectoryEntry {
+
     public static final byte DIRECTORY = 1;
     public static final byte FILE = 2;
     // Inode number (4 bytes)
-    private int iNode;
+    private int inode;
     // Record length (2 bytes)
     private short recLen;
     // Name length (1 byte)
@@ -24,7 +22,7 @@ public class DirectoryEntry {
     private String filename;
 
     public DirectoryEntry(int inode, String name, byte type) {
-        iNode = inode;
+        this.inode = inode;
         fileType = type;
         filename = name;
         // FIX ME: If filename.length > 127 the byte will overflow
@@ -62,21 +60,21 @@ public class DirectoryEntry {
 
     // Byte array representation of a directory entry so we can write it back to disk
     public byte[] toByteArray() {
-        final byte I_NODE[] = Util.toByteArray(iNode);
-        final byte REC_LEN[] = Util.toByteArray(recLen);
-        final byte NAME_LEN[] = Util.toByteArray(nameLen);
-        final byte TYPE[] = Util.toByteArray(fileType);
+        final byte I_NODE[] = BitUtils.toByteArray(inode);
+        final byte REC_LEN[] = BitUtils.toByteArray(recLen);
+        final byte NAME_LEN[] = BitUtils.toByteArray(nameLen);
+        final byte TYPE[] = BitUtils.toByteArray(fileType);
         final byte FILE_NAME[] = filename.getBytes();
         return Bytes.concat(I_NODE, REC_LEN, NAME_LEN, TYPE, FILE_NAME);
     }
 
     // Getters and setters
-    public int getInode() {
-        return iNode;
+    public int getInodeNumber() {
+        return inode;
     }
 
-    public void setInode(int iNode) {
-        this.iNode = iNode;
+    public void setInodeNumber(int iNode) {
+        this.inode = iNode;
     }
 
     public int getRecLen() {

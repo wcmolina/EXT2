@@ -10,10 +10,8 @@ import java.util.Arrays;
 
 import static java.lang.Math.toIntExact;
 
-/**
- * @author Wilmer
- */
 public class Inode {
+
     public static final int DIRECTORY = 1;
     public static final int FILE = 2;
     // 4 bytes
@@ -88,11 +86,11 @@ public class Inode {
     }
 
     public byte[] toByteArray() {
-        final byte TYPE[] = Util.toByteArray(type);
-        final byte SIZE[] = Util.toByteArray(size);
-        final byte CR_TIME[] = Util.toByteArray(creationTime);
-        final byte DEL_TIME[] = Util.toByteArray(deletionTime);
-        final byte POINTERS[] = Util.toByteArray(pointers);
+        final byte TYPE[] = BitUtils.toByteArray(type);
+        final byte SIZE[] = BitUtils.toByteArray(size);
+        final byte CR_TIME[] = BitUtils.toByteArray(creationTime);
+        final byte DEL_TIME[] = BitUtils.toByteArray(deletionTime);
+        final byte POINTERS[] = BitUtils.toByteArray(pointers);
         return Bytes.concat(TYPE, SIZE, CR_TIME, DEL_TIME, POINTERS);
     }
 
@@ -124,11 +122,11 @@ public class Inode {
         return type;
     }
 
-    public int getInode() {
+    public int getInodeNumber() {
         return inode;
     }
 
-    public void setInode(int inodeNumber) {
+    public void setInodeNumber(int inodeNumber) {
         inode = inodeNumber;
     }
 
