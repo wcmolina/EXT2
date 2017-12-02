@@ -34,9 +34,7 @@ public class FileSystem {
     private final byte DATA_BITMAP[] = new byte[DATA_BITMAP_SIZE];
     private final byte INODE_BITMAP[] = new byte[INODE_BITMAP_SIZE];
 
-    // Root directory and current directory
     // Current directory only changes with the cd command (which uses the readDirectoryFromPath(path) method)
-    private Directory root;
     private Directory currentDirectory;
 
     // Inode table
@@ -62,8 +60,7 @@ public class FileSystem {
 
     // Get the structures from disk and allocate them to memory
     private void initialize() throws IOException {
-        root = readDirectory(1);
-        currentDirectory = root;
+        currentDirectory = readDirectory(1);
         currentPath = "/";
 
         // Load bitmaps and inode table to memory
@@ -177,7 +174,7 @@ public class FileSystem {
 
         // If path starts with "/", begin from the root directory
         if (path.startsWith("/")) {
-            initialDir = root;
+            initialDir = readDirectory(1);
             currentPath = "/";
         } else
             initialDir = currentDirectory;
