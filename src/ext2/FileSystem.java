@@ -311,4 +311,8 @@ public class FileSystem {
     public String getCurrentPath() {
         return currentPath == null ? "/" : FilenameUtils.separatorsToUnix(currentPath);
     }
+
+    public InodeTable getInodeTable() {
+        return inodeTable;
+    }
 }
