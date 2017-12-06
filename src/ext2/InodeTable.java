@@ -8,9 +8,9 @@ public class InodeTable extends LinkedList<Inode> {
         super();
     }
 
-    public Inode getByInodeNumber(int inodeNumber) {
+    public Inode findInode(int inodeNumber) {
         for (Inode inode : this) {
-            if (inode.getInodeNumber() == inodeNumber) {
+            if (inode.getInode() == inodeNumber) {
                 return inode;
             }
         }

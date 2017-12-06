@@ -13,6 +13,7 @@ public class Main {
             if (binaryFile.exists() && !binaryFile.isDirectory()) {
                 disk = new Disk(binaryFile);
                 fileSystem = new FileSystem(disk);
+                fileSystem.load();
             } else {
                 binaryFile.createNewFile();
                 disk = new Disk(binaryFile);

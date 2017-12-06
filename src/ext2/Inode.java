@@ -23,7 +23,6 @@ public class Inode {
     // 4 bytes
     private int deletionTime;
     // 48 bytes
-    // FIX ME? Change this to ArrayList<Integer>?
     private final int[] pointers = new int[12];
     // Inode number
     private int inode;
@@ -41,8 +40,8 @@ public class Inode {
     }
 
     // Save the references of the blocks passed to this method in the pointers
-    // FIX ME: return true if the blocks where added succesfully, false otherwise
-    public void addBlockPointers(int... blocks) {
+    // FIX ME? Return true if the blocks where added succesfully, false otherwise
+    public void addBlock(int... blocks) {
         if (blocks.length > 12) {
             System.out.println("Too many blocks to allocate them all in 12 pointers");
             return;
@@ -81,7 +80,7 @@ public class Inode {
         Inode inode = new Inode(inodeNumber, type, size);
         inode.setCreationTime(crTime);
         inode.setDeletionTime(delTime);
-        inode.addBlockPointers(pointers);
+        inode.addBlock(pointers);
         return inode;
     }
 
@@ -118,28 +117,16 @@ public class Inode {
         deletionTime = time;
     }
 
-    public int getType() {
-        return type;
-    }
-
-    public int getInodeNumber() {
+    public int getInode() {
         return inode;
     }
 
-    public void setInodeNumber(int inodeNumber) {
-        inode = inodeNumber;
-    }
-
-    public int[] getPointers() {
-        return pointers;
-    }
-
-    public int[] getUsedPointers() {
+    public ArrayList<Integer> getBlocks() {
         ArrayList<Integer> blocks = new ArrayList<>();
         for (int i : pointers) {
             if (i == 0) continue;
             blocks.add(i);
         }
-        return Ints.toArray(blocks);
+        return blocks;
     }
 }
