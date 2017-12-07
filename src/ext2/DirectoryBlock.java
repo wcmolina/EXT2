@@ -28,6 +28,18 @@ public class DirectoryBlock extends ArrayList<DirectoryEntry> {
         }
     }
 
+    // Returns the sum of all the rec_len from 0 to 'index'
+    public int getOffset(int index) {
+        if (index == 0 || index >= this.size()) {
+            return 0;
+        }
+        int recLen = 0;
+        for (int i = 0; i < index; i++) {
+            recLen += this.get(i).getRecLen();
+        }
+        return recLen;
+    }
+
     // Returns how many bytes are left before the block fills up (gets to 4KB)
     public int getRemainingLength() {
         DirectoryEntry lastEntry = this.getLastEntry();
@@ -46,5 +58,14 @@ public class DirectoryBlock extends ArrayList<DirectoryEntry> {
 
     public int getBlock() {
         return BLOCK;
+    }
+
+    // Returns true if this block contains entries other than the default . and ..
+    public boolean hasEntries() {
+        for (DirectoryEntry entry : this) {
+            if (entry.getFilename().equals(".") || entry.getFilename().equals("..")) continue;
+            return true;
+        }
+        return false;
     }
 }

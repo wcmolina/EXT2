@@ -80,6 +80,41 @@ public class Shell {
                     fileSystem.writeDirectory(dirName);
                     break;
                 }
+
+                case "rmdir": {
+                    // . and .. can't be deleted
+                    String opts[] = input.split(" ", 2);
+                    if (opts.length == 2) {
+                        String name = opts[1];
+                        if (name.equals(".") || name.equals("..")) {
+                            System.out.println("The system can't delete this directory");
+                        } else {
+                            try {
+                                if (!fileSystem.removeEntry(name, DirectoryEntry.DIRECTORY)) {
+                                    System.out.printf("The system could not find the directory '%s'%n", name);
+                                }
+                            } catch (IllegalArgumentException iae) {
+                                System.out.println(iae.getMessage());
+                            }
+                        }
+                    } else {
+                        System.out.println("Invalid 'rmdir' usage. Use 'rmdir [directory name]'");
+                    }
+                    break;
+                }
+
+                case "rm": {
+                    String opts[] = input.split(" ", 2);
+                    if (opts.length == 2) {
+                        String name = opts[1];
+                        if (!fileSystem.removeEntry(name, DirectoryEntry.FILE)) {
+                            System.out.printf("The system could not find the file '%s'%n", name);
+                        }
+                    } else {
+                        System.out.println("Invalid 'rm' usage. Use 'rm [filename]'");
+                    }
+                    break;
+                }
                 case "exit":
                     break mainloop;
                 default:

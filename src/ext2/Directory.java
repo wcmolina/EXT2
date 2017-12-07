@@ -8,11 +8,22 @@ public class Directory extends ArrayList<DirectoryBlock> {
         super();
     }
 
-    public DirectoryEntry findEntry(String filename) {
+    public DirectoryEntry findEntry(String filename, int type) {
         for (DirectoryBlock block : this) {
             for (DirectoryEntry dirEntry : block) {
-                if (dirEntry.getFilename().equals(filename)) {
+                if (dirEntry.getFilename().equals(filename) && dirEntry.getType() == type) {
                     return dirEntry;
+                }
+            }
+        }
+        return null;
+    }
+
+    public DirectoryBlock getBlockContaining(String name, int type) {
+        for (DirectoryBlock block : this) {
+            for (DirectoryEntry entry : block) {
+                if (entry.getFilename().equals(name) && entry.getType() == type) {
+                    return block;
                 }
             }
         }

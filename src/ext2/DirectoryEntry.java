@@ -21,7 +21,7 @@ public class DirectoryEntry {
     // File name (0 - 255 bytes)
     private String filename;
 
-    public DirectoryEntry(int inode, String name, byte type) {
+    public DirectoryEntry(int inode, byte type, String name) {
         this.inode = inode;
         fileType = type;
         filename = name;
@@ -36,21 +36,20 @@ public class DirectoryEntry {
         }
     }
 
-    // Create a directory entry from an array containing all its bytes
-    public static DirectoryEntry fromByteArray(byte[] array) {
-        // The first 8 bytes are fixed (inode, rec_len, name_len, type)
-        final byte I_NODE[] = Arrays.copyOfRange(array, 0, 4);
-        final byte REC_LEN[] = Arrays.copyOfRange(array, 4, 6);
-        final byte FILE_NAME[] = Arrays.copyOfRange(array, 8, array.length);
-        int inode = Ints.fromByteArray(I_NODE);
-        short recLen = Shorts.fromByteArray(REC_LEN);
-        byte type = array[7];
-        String fileName = new String(FILE_NAME);
-
-        // Create a new directory entry instance
-        DirectoryEntry dirEntry = new DirectoryEntry(inode, fileName, type);
-        dirEntry.setRecLen(recLen);
-        return dirEntry;
+    public DirectoryEntry(int inode, short recLen, byte type, String name) {
+        this.inode = inode;
+        this.recLen = recLen;
+        fileType = type;
+        filename = name;
+        // As long as filename.length is not > 255 the byte can still be recovered using Byte.toUnsignedInt() method
+        nameLen = (byte) filename.length();
+        if (nameLen % 4 != 0) {
+            // Not a multiple of 4, make it one by appending null terminators
+            int nullsToAdd = 4 - (nameLen % 4);
+            for (int i = 0; i < nullsToAdd; i++) {
+                filename += '\0';
+            }
+        }
     }
 
     // Byte array representation of a directory entry so we can write it back to disk
@@ -71,6 +70,10 @@ public class DirectoryEntry {
 
     public int getInode() {
         return inode;
+    }
+
+    public void setInode(int inode) {
+        this.inode = inode;
     }
 
     public short getRecLen() {
