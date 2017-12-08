@@ -1,15 +1,12 @@
 package ext2;
 
 import com.google.common.primitives.Bytes;
-import com.google.common.primitives.Ints;
-import com.google.common.primitives.Shorts;
-
-import java.util.Arrays;
 
 public class DirectoryEntry {
 
     public static final byte DIRECTORY = 1;
     public static final byte FILE = 2;
+    public static final byte SYM_LINK = 3;
     // Inode number (4 bytes)
     private int inode;
     // Record length (2 bytes)
@@ -37,19 +34,8 @@ public class DirectoryEntry {
     }
 
     public DirectoryEntry(int inode, short recLen, byte type, String name) {
-        this.inode = inode;
+        this(inode, type, name);
         this.recLen = recLen;
-        fileType = type;
-        filename = name;
-        // As long as filename.length is not > 255 the byte can still be recovered using Byte.toUnsignedInt() method
-        nameLen = (byte) filename.length();
-        if (nameLen % 4 != 0) {
-            // Not a multiple of 4, make it one by appending null terminators
-            int nullsToAdd = 4 - (nameLen % 4);
-            for (int i = 0; i < nullsToAdd; i++) {
-                filename += '\0';
-            }
-        }
     }
 
     // Byte array representation of a directory entry so we can write it back to disk

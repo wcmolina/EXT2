@@ -19,4 +19,10 @@ public final class Utils {
                 directories.add(dir);
         return directories;
     }
+
+    public static ArrayList<Integer> intsToList(int array[]) {
+        ArrayList<Integer> list = new ArrayList<>();
+        for (int i : array) list.add(i);
+        return list;
+    }
 }

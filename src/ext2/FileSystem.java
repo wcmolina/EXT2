@@ -1,9 +1,7 @@
 package ext2;
 
-import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
-import com.sun.org.apache.bcel.internal.generic.IF_ACMPEQ;
 import org.apache.commons.io.FilenameUtils;
 
 import java.io.IOException;
@@ -21,18 +19,18 @@ public class FileSystem {
     // Blocks per group
     private final int DATA_BITMAP_BLOCKS = 2;
     private final int INODE_BITMAP_BLOCKS = 1;
-    private final int INODE_TABLE_BLOCKS = 16;
+    private final int INODE_TABLE_BLOCKS = 20;
 
     // Size per group
     private final int DATA_BITMAP_SIZE = DATA_BITMAP_BLOCKS * BLOCK_SIZE; // 8192 bytes
     private final int INODE_BITMAP_SIZE = INODE_BITMAP_BLOCKS * BLOCK_SIZE; // 4096 bytes
-    private final int INODE_TABLE_SIZE = INODE_TABLE_BLOCKS * BLOCK_SIZE; // 65536 bytes
+    private final int INODE_TABLE_SIZE = INODE_TABLE_BLOCKS * BLOCK_SIZE; // 81920 bytes
 
     // Offset per group
     private final int DATA_BITMAP_OFFSET = 0;
     private final int INODE_BITMAP_OFFSET = DATA_BITMAP_SIZE; // byte 8192
     private final int INODE_TABLE_OFFSET = INODE_BITMAP_OFFSET + INODE_BITMAP_SIZE; // byte 12288
-    private final int DATA_OFFSET = INODE_TABLE_OFFSET + INODE_TABLE_SIZE; // byte 77824
+    private final int DATA_OFFSET = INODE_TABLE_OFFSET + INODE_TABLE_SIZE; // byte 94208
 
     // Bitmaps
     private final byte DATA_BITMAP[] = new byte[DATA_BITMAP_SIZE];
@@ -54,7 +52,6 @@ public class FileSystem {
             // Load bitmaps and inode table to memory
             allocateBitmaps();
             allocateInodeTable();
-
             // Read the root directory
             currentDir = getRoot();
         }
@@ -67,15 +64,19 @@ public class FileSystem {
     }
 
     private void allocateInodeTable() throws IOException {
-        byte inode[] = new byte[64];
+        byte inodeBytes[] = new byte[80];
         inodeTable = new InodeTable();
+        Inode inode;
 
         // Get all indexes already taken in the inode bitmap
-        ArrayList<Integer> usedInodes = BitUtils.findAllSetBits(INODE_BITMAP);
-        for (int index : usedInodes) {
+        // ArrayList<Integer> usedInodes = BitUtils.findAllSetBits(INODE_BITMAP);
+        int totalInodes = 1024;
+        for (int index = 1; index <= totalInodes; index++) {
             DISK.seek(getInodeOffset(index));
-            DISK.read(inode);
-            inodeTable.add(Inode.fromByteArray(inode, index));
+            DISK.read(inodeBytes);
+            inode = Inode.fromByteArray(inodeBytes, index);
+            if (inode != null)
+                inodeTable.add(inode);
         }
     }
 
@@ -90,7 +91,7 @@ public class FileSystem {
 
         // Create an inode for root
         Inode inode = new Inode(dirInode, Inode.DIRECTORY);
-        inode.addBlock(dirBlock);
+        inode.addBlocks(dirBlock);
         inodeTable = new InodeTable();
         inodeTable.add(inode);
 
@@ -142,7 +143,7 @@ public class FileSystem {
             // The new dir_entry doesn't fit in the block, create a new one
             int newBlock = BitUtils.nextClearBitThenSet(DATA_BITMAP);
             Inode inode = inodeTable.findInode(currentDir.getInode());
-            inode.addBlock(newBlock);
+            inode.addBlocks(newBlock);
 
             DirectoryBlock block = new DirectoryBlock(newBlock);
             block.addEntry(dirEntry);
@@ -161,7 +162,7 @@ public class FileSystem {
         // Get the next available block for the new directory and create its inode
         int dirBlock = BitUtils.nextClearBitThenSet(DATA_BITMAP);
         Inode inode = new Inode(dirInode, Inode.DIRECTORY);
-        inode.addBlock(dirBlock);
+        inode.addBlocks(dirBlock);
         inodeTable.add(inode);
 
         // The parent of the new directory is going to be the current directory
@@ -340,7 +341,8 @@ public class FileSystem {
     public void writeFile(String fileName, String content) throws IOException {
         // Split file's bytes into groups of 4KB and write each one to disk (one block per group)
         byte contentBytes[][] = BitUtils.splitBytes(content.getBytes(), 4096);
-        int fileBlocks[] = new int[contentBytes.length];
+        int blocksNeeded = contentBytes.length;
+        int fileBlocks[] = new int[blocksNeeded];
         for (int i = 0; i < contentBytes.length; i++) {
             byte[] group = contentBytes[i];
             int blockNumber = BitUtils.nextClearBitThenSet(DATA_BITMAP);
@@ -352,7 +354,7 @@ public class FileSystem {
         // Create a new inode for this file and write it to disk
         int inodeNumber = BitUtils.nextClearBitThenSet(INODE_BITMAP);
         Inode inode = new Inode(inodeNumber, Inode.FILE, content.length());
-        inode.addBlock(fileBlocks);
+        inode.addBlocks(fileBlocks);
         inodeTable.add(inode);
         DISK.seek(getInodeOffset(inodeNumber));
         DISK.write(inode.toByteArray());
@@ -377,7 +379,7 @@ public class FileSystem {
             // The new dir_entry doesn't fit in the block, create a new one
             int newBlock = BitUtils.nextClearBitThenSet(DATA_BITMAP);
             Inode currentDirInode = inodeTable.findInode(currentDir.getInode());
-            currentDirInode.addBlock(newBlock);
+            currentDirInode.addBlocks(newBlock);
 
             DirectoryBlock block = new DirectoryBlock(newBlock);
             block.addEntry(dirEntry);
@@ -398,7 +400,7 @@ public class FileSystem {
 
     // Given a file name, searches for the file in the current directory, and returns the data in the data blocks
     public byte[] readFile(String fileName) throws IOException {
-        int inode = 0;
+        int inode;
         try {
             inode = currentDir.findEntry(fileName, DirectoryEntry.FILE).getInode();
         } catch (NullPointerException npe) {
@@ -406,8 +408,8 @@ public class FileSystem {
             return null;
         }
 
-        ArrayList<Integer> fileBlocks = null;
-        int fileSize = 0;
+        ArrayList<Integer> fileBlocks;
+        int fileSize;
         Inode fileInode = inodeTable.findInode(inode);
         fileBlocks = fileInode.getBlocks();
         fileSize = fileInode.getSize();
