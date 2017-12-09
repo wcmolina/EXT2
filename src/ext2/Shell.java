@@ -149,7 +149,7 @@ public class Shell {
                 if (dirEntry.getFilename().equals(".") || dirEntry.getFilename().equals(".."))
                     continue;
 
-                inode = inodeTable.findInode(dirEntry.getInode());
+                inode = inodeTable.get(dirEntry.getInode());
                 creationDate = Utils.epochTimeToDate(inode.getCreationTime());
                 size = (dirEntry.getType() == DirectoryEntry.DIRECTORY) ? "" : Integer.toString(inode.getSize());
                 type = (dirEntry.getType() == DirectoryEntry.DIRECTORY) ? "<DIR>" : "";

@@ -29,10 +29,10 @@ public class Inode {
     private int deletionTime;
     // 4 bytes
     private int linkCount;
-    // 48 bytes
-    private final int[] pointers = new int[12];
+    // 48 bytes (12 x 4 bytes)
+    private final int[] directPointers = new int[12];
     // 4 bytes
-    private ArrayList<Integer> indirectPointers;
+    private int indirectPointer;
     // Inode number
     private int inode;
 
@@ -41,7 +41,6 @@ public class Inode {
         this.type = type;
         creationTime = modifiedTime = lastAccessTime = toIntExact(System.currentTimeMillis() / 1000);
         linkCount = 1;
-        indirectPointers = new ArrayList<>();
     }
 
     public Inode(int inode, int type, int size) {
@@ -52,14 +51,16 @@ public class Inode {
     // Save the references of the blocks passed to this method in the pointers
     // FIX ME? Return true if the blocks where added succesfully, false otherwise
     public void addBlocks(int... blocks) {
-        if (blocks.length > 12) {
-            System.out.println("Too many blocks to allocate them all in 12 pointers");
-            return;
+        int pointersLeft = 12 - getUsedDirectBlocks().size();
+        if (blocks.length > pointersLeft) {
+            throw new IllegalArgumentException(String.format("There are only %d direct pointers left and %d blocks were sent",
+                    pointersLeft,
+                    blocks.length));
         }
         for (int block : blocks) {
             for (int i = 0; i < 12; i++) {
-                if (pointers[i] == 0) {
-                    pointers[i] = block;
+                if (directPointers[i] == 0) {
+                    directPointers[i] = block;
                     break;
                 }
             }
@@ -82,7 +83,7 @@ public class Inode {
         final byte DEL_TIME[] = Arrays.copyOfRange(array, 20, 24);
         final byte LINKS[] = Arrays.copyOfRange(array, 24, 28);
         final byte POINTERS[] = Arrays.copyOfRange(array, 28, 76);
-        final byte IND_POINTERS[] = Arrays.copyOfRange(array, 76, 80);
+        final byte IND_POINTER[] = Arrays.copyOfRange(array, 76, 80);
 
         // Build new inode instance from previous arrays
         int size = Ints.fromByteArray(SIZE);
@@ -91,19 +92,12 @@ public class Inode {
         int accTime = Ints.fromByteArray(A_TIME);
         int delTime = Ints.fromByteArray(DEL_TIME);
         int links = Ints.fromByteArray(LINKS);
+        int indPointer = Ints.fromByteArray(IND_POINTER);
 
         // Create pointers array
         IntBuffer intBuffer = ByteBuffer.wrap(POINTERS).asIntBuffer();
         int pointers[] = new int[intBuffer.remaining()];
         intBuffer.get(pointers);
-
-        // Create indirect pointers array
-        intBuffer = ByteBuffer.wrap(IND_POINTERS).asIntBuffer();
-        int indPointers[] = new int[intBuffer.remaining()];
-        intBuffer.get(indPointers);
-
-        // Create array list
-        ArrayList<Integer> list = Utils.intsToList(indPointers);
 
         // Create instance and return it
         Inode inode = new Inode(inodeNumber, type, size);
@@ -113,7 +107,7 @@ public class Inode {
         inode.setDeletionTime(delTime);
         inode.setLinkCount(links);
         inode.addBlocks(pointers);
-        inode.setIndirectPointers(list);
+        inode.setIndirectPointer(indPointer);
         return inode;
     }
 
@@ -125,8 +119,8 @@ public class Inode {
         final byte A_TIME[] = BitUtils.toByteArray(lastAccessTime);
         final byte DEL_TIME[] = BitUtils.toByteArray(deletionTime);
         final byte LINKS[] = BitUtils.toByteArray(linkCount);
-        final byte POINTERS[] = BitUtils.toByteArray(pointers);
-        final byte IND_POINTERS[] = BitUtils.toByteArray(Ints.toArray(indirectPointers));
+        final byte POINTERS[] = BitUtils.toByteArray(directPointers);
+        final byte IND_POINTERS[] = BitUtils.toByteArray(indirectPointer);
         return Bytes.concat(TYPE, SIZE, CR_TIME, M_TIME, A_TIME, DEL_TIME, LINKS, POINTERS, IND_POINTERS);
     }
 
@@ -178,21 +172,21 @@ public class Inode {
         this.linkCount = linkCount;
     }
 
-    public ArrayList<Integer> getIndirectPointers() {
-        return indirectPointers;
+    public int getIndirectPointer() {
+        return indirectPointer;
     }
 
-    public void setIndirectPointers(ArrayList<Integer> indirectPointers) {
-        this.indirectPointers = indirectPointers;
+    public void setIndirectPointer(int indirectPointer) {
+        this.indirectPointer = indirectPointer;
     }
 
     public int getInode() {
         return inode;
     }
 
-    public ArrayList<Integer> getBlocks() {
+    public ArrayList<Integer> getUsedDirectBlocks() {
         ArrayList<Integer> blocks = new ArrayList<>();
-        for (int i : pointers) {
+        for (int i : directPointers) {
             if (i == 0) continue;
             blocks.add(i);
         }
