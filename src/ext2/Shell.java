@@ -6,6 +6,8 @@ import java.util.Scanner;
 public class Shell {
 
     private FileSystem fileSystem;
+    public static final String ANSI_BLUE = "\u001B[34m";
+    public static final String ANSI_RESET = "\u001B[0m";
 
     public Shell(FileSystem fileSystem) {
         this.fileSystem = fileSystem;
@@ -50,6 +52,10 @@ public class Shell {
                     if (input.contains(" > ")) {
                         String opts[] = input.split(" > ");
                         String fileName = opts[1].trim();
+                        if (Utils.containsIllegals(fileName)) {
+                            System.out.println("Illegal character found in the file name");
+                            break;
+                        }
                         if (fileName.length() > 255) {
                             System.out.println("Error: File name too long (a maximum of 255 characters is allowed");
                             break;
@@ -77,6 +83,10 @@ public class Shell {
                 case "mkdir": {
                     String opts[] = input.split(" ", 2);
                     String dirName = opts[1];
+                    if (Utils.containsIllegals(dirName)) {
+                        System.out.println("Illegal character found in the file name");
+                        break;
+                    }
                     fileSystem.writeDirectory(dirName);
                     break;
                 }
@@ -129,12 +139,11 @@ public class Shell {
             DirectoryBlock dirBlock = directory.get(block);
             for (int entry = 0; entry < dirBlock.size(); entry++) {
                 DirectoryEntry dirEntry = dirBlock.get(entry);
-                if (dirEntry.getFilename().equals(".") || dirEntry.getFilename().equals(".."))
-                    continue;
+                if (dirEntry.getFilename().equals(".") || dirEntry.getFilename().equals("..")) continue;
 
                 System.out.printf((block == directory.size() - 1) && (entry == dirBlock.size() - 1)
-                        ? "%s%n"
-                        : "%s  ", dirEntry.getFilename());
+                        ? (dirEntry.getType() == DirectoryEntry.DIRECTORY) ? ANSI_BLUE + "%s%n" + ANSI_RESET : "%s%n"
+                        : (dirEntry.getType() == DirectoryEntry.DIRECTORY) ? ANSI_BLUE + "%s  " + ANSI_RESET : "%s  ", dirEntry.getFilename());
             }
         }
     }
@@ -142,19 +151,25 @@ public class Shell {
     public void lsExtended(Directory directory) {
         InodeTable inodeTable = fileSystem.getInodeTable();
         Inode inode;
-        String creationDate, fileName, type, size;
+        String creationDate, accessDate, modifiedDate, fileName, type, size;
+        System.out.format("%22s  %22s  %22s  %6s %8s %s%n", "Created", "Last access", "Modified", "Type", "Size", "Name");
 
         for (DirectoryBlock block : directory) {
             for (DirectoryEntry dirEntry : block) {
-                if (dirEntry.getFilename().equals(".") || dirEntry.getFilename().equals(".."))
-                    continue;
+                if (dirEntry.getFilename().equals(".") || dirEntry.getFilename().equals("..")) continue;
 
                 inode = inodeTable.get(dirEntry.getInode());
                 creationDate = Utils.epochTimeToDate(inode.getCreationTime());
+                accessDate = Utils.epochTimeToDate(inode.getLastAccessTime());
+                modifiedDate = Utils.epochTimeToDate(inode.getModifiedTime());
                 size = (dirEntry.getType() == DirectoryEntry.DIRECTORY) ? "" : Integer.toString(inode.getSize());
                 type = (dirEntry.getType() == DirectoryEntry.DIRECTORY) ? "<DIR>" : "";
                 fileName = dirEntry.getFilename();
-                System.out.format("%22s %6s %6s %s%n", creationDate, type, size, fileName);
+                System.out.format(
+                        (dirEntry.getType() == DirectoryEntry.DIRECTORY)
+                                ? "%22s  %22s  %22s  %6s %8s " + ANSI_BLUE + "%s" + ANSI_BLUE + "%n" + ANSI_RESET
+                                : "%22s  %22s  %22s  %6s %8s %s%n",
+                        creationDate, accessDate, modifiedDate, type, size, fileName);
             }
         }
     }

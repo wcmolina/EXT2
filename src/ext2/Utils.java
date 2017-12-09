@@ -20,6 +20,11 @@ public final class Utils {
         return directories;
     }
 
+    public static boolean containsIllegals(String text) {
+        String[] arr = text.split("[/~#@*+%{}<>\\[\\]|\"_^]", 2);
+        return arr.length > 1;
+    }
+
     public static ArrayList<Integer> intsToList(int array[]) {
         ArrayList<Integer> list = new ArrayList<>();
         for (int i : array) list.add(i);
