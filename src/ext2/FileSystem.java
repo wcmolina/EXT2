@@ -469,6 +469,12 @@ public class FileSystem {
         ArrayList<Integer> directBlocks;
         int fileSize;
         Inode fileInode = inodeTable.get(inode);
+
+        // Update the last access time and write it to disk
+        fileInode.setLastAccessTime(toIntExact(System.currentTimeMillis() / 1000));
+        DISK.seek(getInodeOffset(fileInode.getInode()));
+        DISK.write(fileInode.toByteArray());
+
         directBlocks = fileInode.getUsedDirectBlocks();
         fileSize = fileInode.getSize();
 

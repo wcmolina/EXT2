@@ -160,11 +160,12 @@ public class Shell {
 
                 inode = inodeTable.get(dirEntry.getInode());
                 creationDate = Utils.epochTimeToDate(inode.getCreationTime());
-                accessDate = Utils.epochTimeToDate(inode.getLastAccessTime());
-                modifiedDate = Utils.epochTimeToDate(inode.getModifiedTime());
+                accessDate = (dirEntry.getType() == DirectoryEntry.DIRECTORY) ? "" : Utils.epochTimeToDate(inode.getLastAccessTime());
+                modifiedDate = (dirEntry.getType() == DirectoryEntry.DIRECTORY) ? "" : Utils.epochTimeToDate(inode.getModifiedTime());
                 size = (dirEntry.getType() == DirectoryEntry.DIRECTORY) ? "" : Integer.toString(inode.getSize());
                 type = (dirEntry.getType() == DirectoryEntry.DIRECTORY) ? "<DIR>" : "";
                 fileName = dirEntry.getFilename();
+
                 System.out.format(
                         (dirEntry.getType() == DirectoryEntry.DIRECTORY)
                                 ? "%22s  %22s  %22s  %6s %8s " + ANSI_BLUE + "%s" + ANSI_BLUE + "%n" + ANSI_RESET
