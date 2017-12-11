@@ -229,17 +229,6 @@ public class FileSystem {
         return null;
     }
 
-    public void createLink(String source, String destination, byte type) throws IOException {
-        DirectoryEntry sourceEntry = findEntry(source, DirectoryEntry.FILE);
-        Inode sourceInode = inodeTable.get(sourceEntry.getInode());
-
-        if (type == DirectoryEntry.SYM_LINK) {
-            // ...
-        } else if (type == DirectoryEntry.HARD_LINK) {
-            // ...
-        }
-    }
-
     // Remove a dir_entry from the current directory
     public boolean removeEntry(String name, int type) throws IOException, IllegalArgumentException {
         DirectoryBlock block;
@@ -499,7 +488,7 @@ public class FileSystem {
                 int lastBlock = references.get(references.size() - 1);
                 if (indirect.length < lastBlockFreeBytes) {
                     DISK.seek(getDataBlockOffset(lastBlock) + remainder);
-                    DISK.write(direct);
+                    DISK.write(indirect);
                     writeAppendModifiedDate(inode, appendLength);
                     return true;
                 } else {
