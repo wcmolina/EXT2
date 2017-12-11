@@ -71,7 +71,17 @@ public class Shell {
                         }
                         fileSystem.writeFile(fileName, content);
                     } else if (input.contains(" >> ")) {
-                        System.out.println("Append to file not supported (yet)");
+                        String opts[] = input.split(">>");
+                        String fileName = opts[1].trim();
+                        String content = "";
+                        String line;
+                        while (!(line = scanner.nextLine()).equals("eof")) {
+                            content += line + "\n";
+                        }
+                        if (!fileSystem.append(fileName, content)) {
+                            System.out.println("The file was not found");
+                            break;
+                        }
                     } else {
                         String opts[] = input.split(" ", 2);
                         if (opts.length == 2) {
@@ -156,7 +166,8 @@ public class Shell {
         InodeTable inodeTable = fileSystem.getInodeTable();
         Inode inode;
         String creationDate, accessDate, modifiedDate, fileName, type, size;
-        System.out.format("%22s  %22s  %22s  %6s %8s %s%n", "Created", "Last access", "Modified", "Type", "Size", "Name");
+        if (directory.get(0).hasEntries())
+            System.out.format("%22s  %22s  %22s  %6s %8s %s%n", "Created", "Last access", "Modified", "Type", "Size", "Name");
 
         for (DirectoryBlock block : directory) {
             for (DirectoryEntry dirEntry : block) {

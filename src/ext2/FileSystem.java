@@ -229,8 +229,6 @@ public class FileSystem {
         return null;
     }
 
-    // name: link name
-    // type: hard or soft
     public void createLink(String source, String destination, byte type) throws IOException {
         DirectoryEntry sourceEntry = findEntry(source, DirectoryEntry.FILE);
         Inode sourceInode = inodeTable.get(sourceEntry.getInode());
@@ -382,130 +380,173 @@ public class FileSystem {
             return null;
         }
 
-        // Read direct blocks first
-        ArrayList<Integer> directBlocks;
-        int fileSize;
         Inode fileInode = inodeTable.get(inode);
-
-        // Update the last access time and write it to disk
         fileInode.setLastAccessTime(toIntExact(System.currentTimeMillis() / 1000));
         DISK.seek(getInodeOffset(fileInode.getInode()));
         DISK.write(fileInode.toByteArray());
 
-        directBlocks = fileInode.getDirectBlocks();
-        fileSize = fileInode.getSize();
-
-        int maxDirectBytes = BLOCK_SIZE * 12;
+        ArrayList<Integer> directBlocks = fileInode.getDirectBlocks();
+        final int fileSize = fileInode.getSize();
+        final int maxDirectBytes = BLOCK_SIZE * 12;
         byte directData[] = new byte[(fileSize > maxDirectBytes) ? maxDirectBytes : fileSize];
 
-        if (directBlocks.size() == 1) {
-            DISK.seek(getDataBlockOffset(directBlocks.get(0)));
-            DISK.read(directData);
-            return directData;
-        }
-
-        // Start writing at position 0 of the array, and read up to 4096 bytes per block
         int offset = 0;
-        int len = BLOCK_SIZE;
+        int len = (directData.length < BLOCK_SIZE) ? directData.length : BLOCK_SIZE;
         for (int block : directBlocks) {
             DISK.seek(getDataBlockOffset(block));
-            DISK.read(directData, offset, len - offset);
+            DISK.read(directData, offset, len);
 
             // Next block data
             offset += BLOCK_SIZE;
-            len = (len + BLOCK_SIZE > directData.length) ? directData.length - len : len + BLOCK_SIZE;
+            len = (directData.length - offset >= BLOCK_SIZE) ? BLOCK_SIZE : directData.length - offset;
         }
 
         // Read the indirect block pointer (if any)
         int indirectPointer;
         if ((indirectPointer = fileInode.getIndirectPointer()) != 0) {
             int remainingBytes = fileSize - maxDirectBytes;
-            // This is where the direct data and the indirect data will be saved
-            byte fullData[];
-
-            // This is where the rest of the data in the indirect pointer will be saved
             byte indirectData[] = new byte[remainingBytes];
 
-            ArrayList<Integer> references = new ArrayList<>();
-            byte blockBytes[] = new byte[4];
-            int block;
-            DISK.seek(getDataBlockOffset(indirectPointer));
-            DISK.read(blockBytes);
-            block = Ints.fromByteArray(blockBytes);
-            while (block != 0) {
-                references.add(block);
-                DISK.read(blockBytes);
-                block = Ints.fromByteArray(blockBytes);
-            }
-
-            // Now references should have all the blocks where the rest of the data is
-            if (references.size() == 1) {
-                DISK.seek(getDataBlockOffset(references.get(0)));
-                DISK.read(indirectData);
-                fullData = Bytes.concat(directData, indirectData);
-                return fullData;
-            }
+            int referenceCount = (int) Math.ceil(fileSize / (double) BLOCK_SIZE) - 12;
+            ArrayList<Integer> references = readIndirectPointer(indirectPointer, referenceCount);
 
             // Start writing at position 0 of the array, and read up to 4096 bytes per block
             offset = 0;
-            len = BLOCK_SIZE;
+            len = (remainingBytes > BLOCK_SIZE) ? BLOCK_SIZE : remainingBytes;
             for (int reference : references) {
                 DISK.seek(getDataBlockOffset(reference));
-                DISK.read(indirectData, offset, len - offset);
+                DISK.read(indirectData, offset, len);
 
                 // Next block data
                 offset += BLOCK_SIZE;
-                len = (len + BLOCK_SIZE > indirectData.length) ? indirectData.length - len : len + BLOCK_SIZE;
+                len = (indirectData.length - offset >= BLOCK_SIZE) ? BLOCK_SIZE : indirectData.length - offset;
             }
             return Bytes.concat(directData, indirectData);
         }
         return directData;
     }
 
-    public void appendToFile(String fileName, String text) throws IOException {
+    public boolean append(String fileName, String text) throws IOException {
         byte content[] = text.getBytes();
+        int appendLength = content.length;
         int inodeNumber;
+
         try {
             inodeNumber = currentDir.findEntry(fileName, DirectoryEntry.FILE).getInode();
         } catch (NullPointerException npe) {
-            return;
+            return false;
         }
+
         Inode inode = inodeTable.get(inodeNumber);
-        int fileSize = inode.getSize();
-        ArrayList<Integer> directBlocks = inode.getDirectBlocks();
-        // How many bytes were written in the last block
-        int remainder = fileSize % BLOCK_SIZE;
-        byte blockFill[] = (remainder > 0) ? Arrays.copyOfRange(content, 0, remainder) : null;
-        byte remaining[] = (remainder > 0) ? Arrays.copyOfRange(content, remainder, content.length) : content;
+        final ArrayList<Integer> directBlocks = inode.getDirectBlocks();
+        final int fileSize = inode.getSize();
+        int freeBlocks = 12 - directBlocks.size();
 
-        if (blockFill != null) {
-            // Fill the last block
-            int lastBlock = directBlocks.get(directBlocks.size() - 1);
-            DISK.seek(getDataBlockOffset(lastBlock));
-            DISK.write(blockFill);
+        int remainder = fileSize % BLOCK_SIZE;
+        int lastBlockFreeBytes = (remainder == 0) ? 0 : BLOCK_SIZE - remainder;
+        int freeDirectBytes = freeBlocks * BLOCK_SIZE + lastBlockFreeBytes;
+
+        byte direct[];
+        byte indirect[];
+        if (appendLength < freeDirectBytes) {
+            // I don't need the indirect pointer
+            direct = content;
+            indirect = null;
+        } else {
+            direct = (freeDirectBytes > 0) ? Arrays.copyOfRange(content, 0, freeDirectBytes) : null;
+            indirect = (freeDirectBytes > 0) ? Arrays.copyOfRange(content, freeDirectBytes, appendLength) : content;
         }
 
-        // Group the remaining bytes in groups of 4KB
-        byte blockGroups[][] = BitUtils.splitBytes(remaining, BLOCK_SIZE);
-        // Check if the are still unused pointers
-        int unusedPointers = 12 - directBlocks.size();
-        int indirectOffset = 0;
-        for (int i = 0; i < blockGroups.length; i++) {
-            if (unusedPointers > 0) {
-                byte group[] = blockGroups[i];
+        if (direct != null) {
+            if (lastBlockFreeBytes > 0) {
+                int lastBlock = directBlocks.get(directBlocks.size() - 1);
+                if (direct.length < lastBlockFreeBytes) {
+                    DISK.seek(getDataBlockOffset(lastBlock) + remainder);
+                    DISK.write(direct);
+                    writeAppendModifiedDate(inode, appendLength);
+                    return true;
+                } else {
+                    byte blockFill[] = Arrays.copyOfRange(direct, 0, lastBlockFreeBytes);
+                    direct = Arrays.copyOfRange(direct, lastBlockFreeBytes, direct.length);
+                    DISK.seek(getDataBlockOffset(lastBlock) + remainder);
+                    DISK.write(blockFill);
+                }
+                remainder = 0;
+            }
+
+            byte directBlockGroups[][] = BitUtils.splitBytes(direct, BLOCK_SIZE);
+            int blocks[] = new int[directBlockGroups.length];
+            for (int i = 0; i < directBlockGroups.length; i++) {
+                byte[] group = directBlockGroups[i];
                 int block = BitUtils.nextClearBitThenSet(DATA_BITMAP);
-                inode.addBlocks(block);
-                unusedPointers--;
-            } else {
-                indirectOffset = i;
-                break;
+                blocks[i] = block;
+                DISK.seek(getDataBlockOffset(block));
+                DISK.write(group);
+            }
+            inode.addBlocks(blocks);
+        }
+
+        if (indirect != null) {
+            ArrayList<Integer> references = new ArrayList<>();
+            int indirectPointer = inode.getIndirectPointer();
+            if (indirectPointer == 0) {
+                // If it gets here is because the direct blocks have exactly 49152 bytes. Remainder should be 0
+                indirectPointer = BitUtils.nextClearBitThenSet(DATA_BITMAP);
+            }
+            if (remainder > 0) {
+                int referenceCount = (int) Math.ceil(fileSize / (double) BLOCK_SIZE) - 12;
+                references = readIndirectPointer(indirectPointer, referenceCount);
+                int lastBlock = references.get(references.size() - 1);
+                if (indirect.length < lastBlockFreeBytes) {
+                    DISK.seek(getDataBlockOffset(lastBlock) + remainder);
+                    DISK.write(direct);
+                    writeAppendModifiedDate(inode, appendLength);
+                    return true;
+                } else {
+                    byte blockFill[] = Arrays.copyOfRange(indirect, 0, lastBlockFreeBytes);
+                    indirect = Arrays.copyOfRange(indirect, lastBlockFreeBytes, appendLength);
+                    DISK.seek(getDataBlockOffset(lastBlock));
+                    DISK.write(blockFill);
+                }
+            }
+
+            byte indirectBlockGroups[][] = BitUtils.splitBytes(indirect, BLOCK_SIZE);
+            for (byte[] group : indirectBlockGroups) {
+                int block = BitUtils.nextClearBitThenSet(DATA_BITMAP);
+                references.add(block);
+                DISK.seek(getDataBlockOffset(block));
+                DISK.write(group);
+            }
+
+            // Write the (indirect) block references to disk
+            DISK.seek(getDataBlockOffset(indirectPointer));
+            for (int reference : references) {
+                DISK.write(Ints.toByteArray(reference));
             }
         }
+        writeAppendModifiedDate(inode, appendLength);
+        return true;
+    }
 
+    private void writeAppendModifiedDate(Inode inode, int appendLength) throws IOException {
+        inode.setSize(inode.getSize() + appendLength);
+        inode.setModifiedTime(toIntExact(System.currentTimeMillis() / 1000));
+        DISK.seek(getInodeOffset(inode.getInode()));
+        DISK.write(inode.toByteArray());
+        writeBitmaps();
+    }
+
+    public ArrayList<Integer> readIndirectPointer(int pointer, int referenceCount) throws IOException {
         ArrayList<Integer> references = new ArrayList<>();
-        int indirectPointer = (inode.getIndirectPointer() == 0) ? BitUtils.nextClearBitThenSet(DATA_BITMAP) : inode.getIndirectPointer();
-        for (int i = indirectOffset; i < blockGroups.length; i++) {
+        byte blockBytes[] = new byte[4];
+        DISK.seek(getDataBlockOffset(pointer));
+        while (referenceCount != 0) {
+            DISK.read(blockBytes);
+            int block = Ints.fromByteArray(blockBytes);
+            references.add(block);
+            referenceCount--;
         }
+        return references;
     }
 
     public Directory getCurrentDirectory() {
