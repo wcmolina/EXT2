@@ -51,7 +51,7 @@ public class Inode {
     // Save the references of the blocks passed to this method in the pointers
     // FIX ME? Return true if the blocks where added succesfully, false otherwise
     public void addBlocks(int... blocks) {
-        int pointersLeft = 12 - getUsedDirectBlocks().size();
+        int pointersLeft = 12 - getDirectBlocks().size();
         if (blocks.length > pointersLeft) {
             throw new IllegalArgumentException(String.format("There are only %d direct pointers left and %d blocks were sent",
                     pointersLeft,
@@ -69,7 +69,7 @@ public class Inode {
 
     // Reads 80 bytes from the byte array[] and creates a new instance of Inode from it
     public static Inode fromByteArray(byte array[], int inodeNumber) {
-        // Split 64 byte array into subarrays
+        // Split 80 byte array into subarrays
         final byte TYPE[] = Arrays.copyOfRange(array, 0, 4);
 
         // Before we continue, check if the type is 0 (no inode uses type 0. If it is 0 it means there is no inode)
@@ -122,6 +122,15 @@ public class Inode {
         final byte POINTERS[] = BitUtils.toByteArray(directPointers);
         final byte IND_POINTERS[] = BitUtils.toByteArray(indirectPointer);
         return Bytes.concat(TYPE, SIZE, CR_TIME, M_TIME, A_TIME, DEL_TIME, LINKS, POINTERS, IND_POINTERS);
+    }
+
+    public ArrayList<Integer> getDirectBlocks() {
+        ArrayList<Integer> blocks = new ArrayList<>();
+        for (int i : directPointers) {
+            if (i == 0) continue;
+            blocks.add(i);
+        }
+        return blocks;
     }
 
     public int getSize() {
@@ -182,14 +191,5 @@ public class Inode {
 
     public int getInode() {
         return inode;
-    }
-
-    public ArrayList<Integer> getUsedDirectBlocks() {
-        ArrayList<Integer> blocks = new ArrayList<>();
-        for (int i : directPointers) {
-            if (i == 0) continue;
-            blocks.add(i);
-        }
-        return blocks;
     }
 }

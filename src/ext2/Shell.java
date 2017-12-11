@@ -1,11 +1,15 @@
 package ext2;
 
+import org.apache.commons.io.FilenameUtils;
+
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 public class Shell {
 
     private FileSystem fileSystem;
+    private String currentPath = "/";
     public static final String ANSI_BLUE = "\u001B[34m";
     public static final String ANSI_RESET = "\u001B[0m";
 
@@ -18,7 +22,7 @@ public class Shell {
         String input, command;
         mainloop:
         for (; ; ) {
-            System.out.printf("%n%s$ ", fileSystem.getCurrentPath());
+            System.out.printf("%n%s$ ", getCurrentPath());
             input = scanner.nextLine();
             command = input.split(" ")[0];
             switch (command) {
@@ -190,7 +194,44 @@ public class Shell {
     }
 
     public void cd(String path) throws IOException {
-        if (fileSystem.readDirectoryBlock(path) == null)
-            System.out.println("The system could not find the path specified");
+        // Used to restore the path in case this method throws an exception while building the path
+        String rollbackPath = getCurrentPath();
+        Directory initialDir = (path.startsWith("/")) ? fileSystem.getRoot() : fileSystem.getCurrentDirectory();
+        currentPath = (path.startsWith("/")) ? "/" : currentPath;
+
+        ArrayList<String> directories = Utils.splitPath(path);
+        for (String name : directories) {
+            DirectoryEntry entry = initialDir.findEntry(name, DirectoryEntry.DIRECTORY);
+            if (entry != null) {
+                if (entry.getType() == DirectoryEntry.DIRECTORY) {
+                    Directory directory = new Directory();
+                    ArrayList<Integer> dirBlocks;
+                    int inodeNumber = entry.getInode();
+                    Inode inode = fileSystem.getInodeTable().get(inodeNumber);
+                    dirBlocks = inode.getDirectBlocks();
+
+                    // Go through each block and read their dir_entries
+                    for (int block : dirBlocks)
+                        directory.add(fileSystem.readDirectoryBlock(block));
+
+                    initialDir = directory;
+                    currentPath = FilenameUtils.concat(getCurrentPath(), name.concat("/"));
+                } else {
+                    // It is a file so it doesn't have directory entries
+                    currentPath = rollbackPath;
+                    System.out.println("The system could not find the path specified");
+                    return;
+                }
+            } else {
+                currentPath = rollbackPath;
+                System.out.println("The system could not find the path specified");
+                return;
+            }
+        }
+        fileSystem.setCurrentDirectory(initialDir);
+    }
+
+    public String getCurrentPath() {
+        return currentPath == null ? "/" : FilenameUtils.separatorsToUnix(currentPath);
     }
 }

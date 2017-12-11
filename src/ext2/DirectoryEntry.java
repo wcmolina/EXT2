@@ -7,6 +7,7 @@ public class DirectoryEntry {
     public static final byte DIRECTORY = 1;
     public static final byte FILE = 2;
     public static final byte SYM_LINK = 3;
+    public static final byte HARD_LINK = 4;
     // Inode number (4 bytes)
     private int inode;
     // Record length (2 bytes)
