@@ -8,10 +8,10 @@ public class Directory extends ArrayList<DirectoryBlock> {
         super();
     }
 
-    public DirectoryEntry findEntry(String filename, int type) {
+    public DirectoryEntry findEntry(String name) {
         for (DirectoryBlock block : this) {
             for (DirectoryEntry dirEntry : block) {
-                if (dirEntry.getFilename().equals(filename) && dirEntry.getType() == type) {
+                if (dirEntry.getFilename().equals(name)) {
                     return dirEntry;
                 }
             }
@@ -19,10 +19,10 @@ public class Directory extends ArrayList<DirectoryBlock> {
         return null;
     }
 
-    public DirectoryBlock getBlockContaining(String name, int type) {
+    public DirectoryBlock getBlockContaining(String name) {
         for (DirectoryBlock block : this) {
             for (DirectoryEntry entry : block) {
-                if (entry.getFilename().equals(name) && entry.getType() == type) {
+                if (entry.getFilename().equals(name)) {
                     return block;
                 }
             }

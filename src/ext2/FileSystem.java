@@ -120,7 +120,10 @@ public class FileSystem {
         DISK.write(INODE_BITMAP);
     }
 
-    public void writeDirectory(String name) throws IOException {
+    public void writeDirectory(String name) throws IOException, IllegalArgumentException {
+        if (currentDir.findEntry(name) != null) {
+            throw new IllegalArgumentException("The is already a file with the same name");
+        }
         int dirInode = BitUtils.nextClearBitThenSet(INODE_BITMAP);
 
         addDirectoryEntry(dirInode, DirectoryEntry.DIRECTORY, name);
@@ -199,13 +202,13 @@ public class FileSystem {
         return block;
     }
 
-    public DirectoryEntry findEntry(String path, byte type) throws IOException {
+    public DirectoryEntry findEntry(String path) throws IOException {
         Directory initialDir = (path.startsWith("/")) ? getRoot() : currentDir;
 
         ArrayList<String> entries = Utils.splitPath(path);
         for (int i = 0; i < entries.size(); i++) {
             String name = entries.get(i);
-            DirectoryEntry entry = initialDir.findEntry(name, type);
+            DirectoryEntry entry = initialDir.findEntry(name);
             if (entry != null) {
                 if (entry.getType() == DirectoryEntry.DIRECTORY) {
                     Directory directory = new Directory();
@@ -230,19 +233,19 @@ public class FileSystem {
     }
 
     // Remove a dir_entry from the current directory
-    public boolean removeEntry(String name, int type) throws IOException, IllegalArgumentException {
+    public boolean removeEntry(String name) throws IOException, IllegalArgumentException {
         DirectoryBlock block;
         DirectoryEntry entry;
         Inode inode;
-        if ((block = currentDir.getBlockContaining(name, type)) != null) {
+        if ((block = currentDir.getBlockContaining(name)) != null) {
             for (int i = 0; i < block.size(); i++) {
                 entry = block.get(i);
-                if (entry.getFilename().equals(name) && entry.getType() == type) {
+                if (entry.getFilename().equals(name)) {
                     // This entry's inode
                     inode = inodeTable.get(entry.getInode());
 
                     // If it is a directory, check if it is empty
-                    if (type == DirectoryEntry.DIRECTORY) {
+                    if (entry.getType() == DirectoryEntry.DIRECTORY) {
                         for (int index : inode.getDirectBlocks()) {
                             if (readDirectoryBlock(index).hasEntries()) {
                                 throw new IllegalArgumentException("Directory is not empty. Cannot delete it");
@@ -306,8 +309,11 @@ public class FileSystem {
     }
 
     // Saves the text into available data blocks, and then creates the dir_entry and the inode for the file
-    public void writeFile(String fileName, String text) throws IOException {
+    public void writeFile(String fileName, String text) throws IOException, IllegalArgumentException {
         // Split file's bytes into groups of 4KB and write each one to disk (one block per group)
+        if (currentDir.findEntry(fileName) != null) {
+            throw new IllegalArgumentException("The is already a file with the same name");
+        }
         byte content[][] = BitUtils.splitBytes(text.getBytes(), BLOCK_SIZE);
         int blocksNeeded = content.length;
         // Bytes that will go in the direct pointers
@@ -363,7 +369,7 @@ public class FileSystem {
     public byte[] readFile(String fileName) throws IOException {
         int inode;
         try {
-            inode = currentDir.findEntry(fileName, DirectoryEntry.FILE).getInode();
+            inode = currentDir.findEntry(fileName).getInode();
         } catch (NullPointerException npe) {
             // File not found
             return null;
@@ -421,7 +427,7 @@ public class FileSystem {
         int inodeNumber;
 
         try {
-            inodeNumber = currentDir.findEntry(fileName, DirectoryEntry.FILE).getInode();
+            inodeNumber = currentDir.findEntry(fileName).getInode();
         } catch (NullPointerException npe) {
             return false;
         }

@@ -69,7 +69,11 @@ public class Shell {
                         while (!(line = scanner.nextLine()).equals("eof")) {
                             content += line + "\n";
                         }
-                        fileSystem.writeFile(fileName, content);
+                        try {
+                            fileSystem.writeFile(fileName, content);
+                        } catch (IllegalArgumentException iae) {
+                            System.out.println(iae.getMessage());
+                        }
                     } else if (input.contains(" >> ")) {
                         String opts[] = input.split(">>");
                         String fileName = opts[1].trim();
@@ -101,7 +105,11 @@ public class Shell {
                         System.out.println("Illegal character found in the file name");
                         break;
                     }
-                    fileSystem.writeDirectory(dirName);
+                    try {
+                        fileSystem.writeDirectory(dirName);
+                    } catch (IllegalArgumentException iae) {
+                        System.out.println(iae.getMessage());
+                    }
                     break;
                 }
 
@@ -114,7 +122,7 @@ public class Shell {
                             System.out.println("The system can't delete this directory");
                         } else {
                             try {
-                                if (!fileSystem.removeEntry(name, DirectoryEntry.DIRECTORY)) {
+                                if (!fileSystem.removeEntry(name)) {
                                     System.out.printf("The system could not find the directory '%s'%n", name);
                                 }
                             } catch (IllegalArgumentException iae) {
@@ -131,7 +139,7 @@ public class Shell {
                     String opts[] = input.split(" ", 2);
                     if (opts.length == 2) {
                         String name = opts[1];
-                        if (!fileSystem.removeEntry(name, DirectoryEntry.FILE)) {
+                        if (!fileSystem.removeEntry(name)) {
                             System.out.printf("The system could not find the file '%s'%n", name);
                         }
                     } else {
@@ -212,7 +220,7 @@ public class Shell {
 
         ArrayList<String> directories = Utils.splitPath(path);
         for (String name : directories) {
-            DirectoryEntry entry = initialDir.findEntry(name, DirectoryEntry.DIRECTORY);
+            DirectoryEntry entry = initialDir.findEntry(name);
             if (entry != null) {
                 if (entry.getType() == DirectoryEntry.DIRECTORY) {
                     Directory directory = new Directory();
