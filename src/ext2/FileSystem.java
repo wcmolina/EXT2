@@ -3,6 +3,7 @@ package ext2;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
+import org.apache.commons.io.FilenameUtils;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -202,13 +203,40 @@ public class FileSystem {
         return block;
     }
 
-    public DirectoryEntry findEntry(String path) throws IOException {
+    public void goToDirectory(String path) throws IOException {
         Directory initialDir = (path.startsWith("/")) ? getRoot() : currentDir;
-
+        DirectoryEntry entry = null;
         ArrayList<String> entries = Utils.splitPath(path);
         for (int i = 0; i < entries.size(); i++) {
             String name = entries.get(i);
-            DirectoryEntry entry = initialDir.findEntry(name);
+            entry = initialDir.findEntry(name);
+            if (entry != null) {
+                if (entry.getType() == DirectoryEntry.DIRECTORY) {
+                    Directory directory = new Directory();
+                    ArrayList<Integer> dirBlocks;
+                    int inodeNumber = entry.getInode();
+                    Inode inode = inodeTable.get(inodeNumber);
+                    dirBlocks = inode.getDirectBlocks();
+
+                    // Go through each block and read their dir_entries
+                    for (int block : dirBlocks) {
+                        directory.add(readDirectoryBlock(block));
+                    }
+
+                    initialDir = directory;
+                    currentDir = initialDir;
+                }
+            }
+        }
+    }
+
+    public DirectoryEntry findEntry(String path) throws IOException {
+        Directory initialDir = (path.startsWith("/")) ? getRoot() : currentDir;
+        DirectoryEntry entry = null;
+        ArrayList<String> entries = Utils.splitPath(path);
+        for (int i = 0; i < entries.size(); i++) {
+            String name = entries.get(i);
+            entry = initialDir.findEntry(name);
             if (entry != null) {
                 if (entry.getType() == DirectoryEntry.DIRECTORY) {
                     Directory directory = new Directory();
@@ -227,9 +255,9 @@ public class FileSystem {
                     // It is a file so it doesn't have directory entries. Check if it is the last element in the path
                     return (i == entries.size() - 1) ? entry : null;
                 }
-            } else return null;
+            }
         }
-        return null;
+        return entry;
     }
 
     // Remove a dir_entry from the current directory
@@ -253,41 +281,43 @@ public class FileSystem {
                         }
                     }
 
-                    // Clear the bits used by the dir_entry in the data bitmap
-                    for (int index : inode.getDirectBlocks()) {
-                        BitUtils.clearBit(index, DATA_BITMAP);
-                    }
-
-                    // Check if it has an indirect pointer
-                    int indirectPointer = inode.getIndirectPointer();
-                    ArrayList<Integer> references = null;
-                    if (indirectPointer != 0) {
-                        references = new ArrayList<>();
-                        byte blockBytes[] = new byte[4];
-                        int reference;
-                        DISK.seek(getDataBlockOffset(indirectPointer));
-                        DISK.read(blockBytes);
-                        reference = Ints.fromByteArray(blockBytes);
-                        while (reference != 0) {
-                            references.add(reference);
-                            DISK.read(blockBytes);
-                            reference = Ints.fromByteArray(blockBytes);
-                        }
-                        BitUtils.clearBit(indirectPointer, DATA_BITMAP);
-                    }
-
-                    if (references != null) {
-                        for (int index : references) {
+                    if (inode.getLinkCount() == 1) {
+                        // Clear the bits used by the dir_entry in the data bitmap
+                        for (int index : inode.getDirectBlocks()) {
                             BitUtils.clearBit(index, DATA_BITMAP);
                         }
+
+                        // Check if it has an indirect pointer
+                        int indirectPointer = inode.getIndirectPointer();
+                        ArrayList<Integer> references;
+                        if (indirectPointer != 0) {
+                            references = new ArrayList<>();
+                            byte blockBytes[] = new byte[4];
+                            int reference;
+                            DISK.seek(getDataBlockOffset(indirectPointer));
+                            DISK.read(blockBytes);
+                            reference = Ints.fromByteArray(blockBytes);
+                            while (reference != 0) {
+                                references.add(reference);
+                                DISK.read(blockBytes);
+                                reference = Ints.fromByteArray(blockBytes);
+                            }
+                            BitUtils.clearBit(indirectPointer, DATA_BITMAP);
+
+                            for (int index : references) {
+                                BitUtils.clearBit(index, DATA_BITMAP);
+                            }
+                        }
+
+                        // Clear the bit of this inode in the inode bitmap and set its deletion time, then write it to disk
+                        BitUtils.clearBit(inode.getInode(), INODE_BITMAP);
+                        inode.setDeletionTime(toIntExact(System.currentTimeMillis() / 1000));
+                        inode.setLinkCount(0);
+                        DISK.seek(getInodeOffset(inode.getInode()));
+                        DISK.write(inode.toByteArray());
+
+                        writeBitmaps();
                     }
-
-                    // Clear the bit of this inode in the inode bitmap and set its deletion time, then write it to disk
-                    BitUtils.clearBit(inode.getInode(), INODE_BITMAP);
-                    inode.setDeletionTime(toIntExact(System.currentTimeMillis() / 1000));
-                    DISK.seek(getInodeOffset(inode.getInode()));
-                    DISK.write(inode.toByteArray());
-
                     if (i == 0) {
                         DISK.seek(getDataBlockOffset(block.getBlock()));
                     } else {
@@ -300,12 +330,34 @@ public class FileSystem {
                         DISK.write(previous.toByteArray());
                     }
                     block.remove(i);
-                    writeBitmaps();
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    public void writeLink(String source, String dest, byte type) throws IOException, IllegalArgumentException {
+        DirectoryEntry sourceEntry = findEntry(source);
+        Inode sourceInode = inodeTable.get(sourceEntry.getInode());
+
+        if (type == DirectoryEntry.HARD_LINK) {
+            addDirectoryEntry(sourceInode.getInode(), DirectoryEntry.FILE, dest);
+            sourceInode.setLinkCount(sourceInode.getLinkCount() + 1);
+            DISK.seek(getInodeOffset(sourceInode.getInode()));
+            DISK.write(sourceInode.toByteArray());
+        } else if (type == DirectoryEntry.SYM_LINK) {
+            int inodeNumber = BitUtils.nextClearBitThenSet(INODE_BITMAP);
+
+            addDirectoryEntry(inodeNumber, DirectoryEntry.SYM_LINK, dest);
+
+            Inode inode = new Inode(inodeNumber, Inode.SYM_LINK);
+            inode.setSymLinkUrl(source);
+            inodeTable.put(inodeNumber, inode);
+            DISK.seek(getInodeOffset(inodeNumber));
+            DISK.write(inode.toByteArray());
+            writeBitmaps();
+        }
     }
 
     // Saves the text into available data blocks, and then creates the dir_entry and the inode for the file
@@ -376,6 +428,17 @@ public class FileSystem {
         }
 
         Inode fileInode = inodeTable.get(inode);
+
+        if (fileInode.getType() == Inode.SYM_LINK) {
+            Directory rollback = currentDir;
+            String path = FilenameUtils.getPath(fileInode.getSymLinkUrl());
+            String name = FilenameUtils.getName(fileInode.getSymLinkUrl());
+            goToDirectory(path);
+            byte content[] = readFile(name);
+            currentDir = rollback;
+            return content;
+        }
+
         fileInode.setLastAccessTime(toIntExact(System.currentTimeMillis() / 1000));
         DISK.seek(getInodeOffset(fileInode.getInode()));
         DISK.write(fileInode.toByteArray());

@@ -93,7 +93,7 @@ public class Shell {
                             String fileName = opts[1];
                             cat(fileName);
                         } else {
-                            System.out.println("Invalid 'cat' usage. Use 'cat [filename]' or 'cat > [filename]'");
+                            System.out.println("Invalid 'cat' usage. Use 'cat <filename>' or 'cat > <filename>' or cat >> <filename>");
                         }
                     }
                     break;
@@ -130,7 +130,7 @@ public class Shell {
                             }
                         }
                     } else {
-                        System.out.println("Invalid 'rmdir' usage. Use 'rmdir [directory name]'");
+                        System.out.println("Invalid 'rmdir' usage. Use 'rmdir <directory name>'");
                     }
                     break;
                 }
@@ -143,7 +143,29 @@ public class Shell {
                             System.out.printf("The system could not find the file '%s'%n", name);
                         }
                     } else {
-                        System.out.println("Invalid 'rm' usage. Use 'rm [filename]'");
+                        System.out.println("Invalid 'rm' usage. Use 'rm <filename>'");
+                    }
+                    break;
+                }
+
+                case "ln": {
+                    String params[] = input.split(" ", 3);
+                    if (params[1].equals("-s")) {
+                        // ln -s (simbolic link)
+                        String paths[] = input.split(" -s ")[1].split(" ", 2);
+                        if (paths.length == 2) {
+                            String source = paths[0];
+                            String dest = paths[1];
+                            fileSystem.writeLink(source, dest, DirectoryEntry.SYM_LINK);
+                        } else {
+                            System.out.println("Invalid 'ln' usage. Use 'ln [-s] <source> <destination>' or 'ln <source> <destination>'");
+                        }
+                    } else {
+                        // ln (hard link)
+                        String paths[] = input.split(" ", 2)[1].split(" ", 2);
+                        String source = paths[0];
+                        String des = paths[1];
+                        fileSystem.writeLink(source, des, DirectoryEntry.HARD_LINK);
                     }
                     break;
                 }

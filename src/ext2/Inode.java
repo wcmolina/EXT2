@@ -35,6 +35,8 @@ public class Inode {
     private int indirectPointer;
     // Inode number
     private int inode;
+    // Sym link url
+    private String url = "";
 
     public Inode(int inode, int type) {
         this.inode = inode;
@@ -93,11 +95,17 @@ public class Inode {
         int delTime = Ints.fromByteArray(DEL_TIME);
         int links = Ints.fromByteArray(LINKS);
         int indPointer = Ints.fromByteArray(IND_POINTER);
+        String url = "";
+        int pointers[] = null;
 
-        // Create pointers array
-        IntBuffer intBuffer = ByteBuffer.wrap(POINTERS).asIntBuffer();
-        int pointers[] = new int[intBuffer.remaining()];
-        intBuffer.get(pointers);
+        if (type == SYM_LINK) {
+            url = new String(POINTERS);
+        } else {
+            // Create pointers array
+            IntBuffer intBuffer = ByteBuffer.wrap(POINTERS).asIntBuffer();
+            pointers = new int[intBuffer.remaining()];
+            intBuffer.get(pointers);
+        }
 
         // Create instance and return it
         Inode inode = new Inode(inodeNumber, type, size);
@@ -106,7 +114,11 @@ public class Inode {
         inode.setLastAccessTime(accTime);
         inode.setDeletionTime(delTime);
         inode.setLinkCount(links);
-        inode.addBlocks(pointers);
+        if (type == SYM_LINK) {
+            inode.setSymLinkUrl(url);
+        } else {
+            inode.addBlocks(pointers);
+        }
         inode.setIndirectPointer(indPointer);
         return inode;
     }
@@ -119,7 +131,20 @@ public class Inode {
         final byte A_TIME[] = BitUtils.toByteArray(lastAccessTime);
         final byte DEL_TIME[] = BitUtils.toByteArray(deletionTime);
         final byte LINKS[] = BitUtils.toByteArray(linkCount);
-        final byte POINTERS[] = BitUtils.toByteArray(directPointers);
+
+        byte urlBytes[] = new byte[48];
+        if (type == SYM_LINK) {
+            byte[] bytes = url.getBytes();
+            for (int i = 0; i < urlBytes.length; i++) {
+                if (i > bytes.length - 1) {
+                    urlBytes[i] = '\0';
+                } else {
+                    urlBytes[i] = bytes[i];
+                }
+            }
+        }
+
+        final byte POINTERS[] = (type == SYM_LINK) ? urlBytes : BitUtils.toByteArray(directPointers);
         final byte IND_POINTERS[] = BitUtils.toByteArray(indirectPointer);
         return Bytes.concat(TYPE, SIZE, CR_TIME, M_TIME, A_TIME, DEL_TIME, LINKS, POINTERS, IND_POINTERS);
     }
@@ -131,6 +156,14 @@ public class Inode {
             blocks.add(i);
         }
         return blocks;
+    }
+
+    public void setSymLinkUrl(String url) {
+        this.url = url.trim();
+    }
+
+    public String getSymLinkUrl() {
+        return url;
     }
 
     public int getSize() {
@@ -191,5 +224,9 @@ public class Inode {
 
     public int getInode() {
         return inode;
+    }
+
+    public int getType() {
+        return type;
     }
 }
